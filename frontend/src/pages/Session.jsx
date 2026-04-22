@@ -16,6 +16,10 @@ export default function Session() {
   const [questionCount, setQuestionCount] = useState(0)
   const [hintsUsed, setHintsUsed] = useState(0)
   const [showHintBtn, setShowHintBtn] = useState(false)
+  const [followUpMode, setFollowUpMode] = useState(false)
+  const [followUpHistory, setFollowUpHistory] = useState([])
+  const [currentFeedback, setCurrentFeedback] = useState('')
+  const [currentAnswer, setCurrentAnswer] = useState('')
   const subtopicsRef = useRef(sessionData?.subtopics || [sessionData?.subtopic])
   const subtopicIndexRef = useRef(0)
   const bottomRef = useRef(null)
@@ -27,6 +31,10 @@ export default function Session() {
     setLoading(true)
     setHintsUsed(0)
     setShowHintBtn(false)
+    setFollowUpMode(false)
+    setFollowUpHistory([])
+    setCurrentFeedback('')
+    setCurrentAnswer('')
 
     const subtopics = subtopicsRef.current
     const subtopic = subtopics[subtopicIndexRef.current % subtopics.length]
@@ -68,6 +76,11 @@ export default function Session() {
     e.preventDefault()
     if (!input.trim() || loading) return
 
+    if (followUpMode) {
+      await handleFollowUp()
+      return
+    }
+
     const userAnswer = input.trim()
     setInput('')
     setShowHintBtn(false)
@@ -89,20 +102,57 @@ export default function Session() {
     })
     const result = await res.json()
 
+    setCurrentFeedback(result.feedback)
+    setCurrentAnswer(userAnswer)
+
     setMessages(prev => [...prev,
       { role: 'feedback', text: result.feedback },
       ...(result.interview_taal ? [{ role: 'interview', text: `🎤 Interview: ${result.interview_taal}` }] : []),
       ...(result.pi_commando ? [{ role: 'pi', text: `🍓 Pi simulatie:\n${result.pi_commando}` }] : []),
     ])
 
+    setFollowUpMode(true)
+    setLoading(false)
+  }
+
+  async function handleFollowUp() {
+    const question = input.trim()
+    if (!question) return
+    setInput('')
+    setMessages(prev => [...prev, { role: 'user', text: question }])
+    setLoading(true)
+
+    const res = await fetch(`${API}/session/followup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: currentQuestion.question,
+        subtopic: currentQuestion.subtopic,
+        user_answer: currentAnswer,
+        feedback: currentFeedback,
+        followup_question: question,
+        history: followUpHistory,
+      })
+    })
+    const data = await res.json()
+
+    const newHistory = [
+      ...followUpHistory,
+      { role: 'user', text: question },
+      { role: 'coach', text: data.answer },
+    ]
+    setFollowUpHistory(newHistory)
+    setMessages(prev => [...prev, { role: 'followup', text: data.answer }])
+    setLoading(false)
+  }
+
+  function handleNextQuestion() {
     const newCount = questionCount + 1
     setQuestionCount(newCount)
-
     if (newCount >= QUESTIONS_PER_SESSION) {
-      setLoading(false)
       navigate('/results', { state: { sessionData } })
     } else {
-      setTimeout(fetchQuestion, 2000)
+      fetchQuestion()
     }
   }
 
@@ -127,29 +177,42 @@ export default function Session() {
       </div>
 
       <div className="border-t border-gray-800">
-        {showHintBtn && hintsUsed < 3 && (
-          <div className="px-4 pt-3">
+        {followUpMode ? (
+          <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+            <p className="text-gray-500 text-xs">💬 Stel gerust meer vragen over dit onderwerp</p>
             <button
-              onClick={handleHint}
+              onClick={handleNextQuestion}
               disabled={loading}
-              className="text-yellow-400 hover:text-yellow-300 text-sm disabled:opacity-50"
+              className="text-blue-400 hover:text-blue-300 text-sm font-medium disabled:opacity-50"
             >
-              💡 Hint {hintsUsed + 1}/3 — kom ik er niet helemaal uit
+              Volgende vraag →
             </button>
           </div>
+        ) : (
+          showHintBtn && hintsUsed < 3 && (
+            <div className="px-4 pt-3">
+              <button
+                onClick={handleHint}
+                disabled={loading}
+                className="text-yellow-400 hover:text-yellow-300 text-sm disabled:opacity-50"
+              >
+                💡 Hint {hintsUsed + 1}/3 — kom ik er niet helemaal uit
+              </button>
+            </div>
+          )
         )}
         <form onSubmit={handleSubmit} className="p-4 flex gap-3">
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSubmit(e)}
-            placeholder="Typ je antwoord... (Shift+Enter voor nieuwe regel)"
+            placeholder={followUpMode ? 'Stel een vervolgvraag...' : 'Typ je antwoord... (Shift+Enter voor nieuwe regel)'}
             rows={3}
             disabled={loading}
             className="flex-1 bg-gray-800 text-white p-3 rounded-xl resize-none text-sm disabled:opacity-50"
           />
           <button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-xl disabled:opacity-50">
-            Stuur
+            {followUpMode ? 'Vraag' : 'Stuur'}
           </button>
         </form>
       </div>

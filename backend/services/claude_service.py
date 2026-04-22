@@ -123,6 +123,35 @@ Schrijf in het Nederlands. Geef NIET het volledige antwoord."""
     return message.content[0].text.strip()
 
 
+def generate_followup(question: str, subtopic: str, user_answer: str, feedback: str, followup_question: str, history: list) -> str:
+    messages = [
+        {
+            "role": "user",
+            "content": f"""Je bent een TRE-mentor bij een trading firm. Een trainee heeft zojuist een oefenvraag beantwoord en wil nu doorvragen.
+
+Originele vraag: {question}
+Onderwerp: {subtopic}
+Antwoord van de trainee: {user_answer}
+Jouw feedback was: {feedback}
+
+De trainee kan nu vrij doorvragen. Beantwoord bondig en praktisch in het Nederlands. Focus op begrip, geef concrete voorbeelden of commando's waar relevant."""
+        },
+        {"role": "assistant", "content": "Natuurlijk, stel gerust je vraag."}
+    ]
+
+    for msg in history:
+        messages.append({"role": "user" if msg["role"] == "user" else "assistant", "content": msg["text"]})
+
+    messages.append({"role": "user", "content": followup_question})
+
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=400,
+        messages=messages,
+    )
+    return message.content[0].text.strip()
+
+
 def evaluate_answer(question: str, user_answer: str, subtopic: str, level: str = "basis") -> dict:
     level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
 

@@ -1,7 +1,7 @@
 import random
 from fastapi import APIRouter, Header, HTTPException
-from models import StartSessionRequest, AnswerRequest, HintRequest, QuestionResponse, FeedbackResponse, HintResponse
-from services.claude_service import generate_question, generate_hint, SUBTOPICS
+from models import StartSessionRequest, AnswerRequest, HintRequest, QuestionResponse, FeedbackResponse, HintResponse, FollowupRequest, FollowupResponse
+from services.claude_service import generate_question, generate_hint, generate_followup, SUBTOPICS
 from services.supabase_service import create_session, save_answer, get_weakest_subtopic, get_weakest_topic, get_topic_level
 
 router = APIRouter()
@@ -56,6 +56,19 @@ def get_question(session_id: str, subtopic: str, level: str = "basis"):
 def get_hint(body: HintRequest) -> HintResponse:
     hint = generate_hint(body.question, body.subtopic, body.hint_number, body.previous_answer)
     return HintResponse(hint=hint, hint_number=body.hint_number)
+
+
+@router.post("/followup")
+def followup(body: FollowupRequest) -> FollowupResponse:
+    answer = generate_followup(
+        question=body.question,
+        subtopic=body.subtopic,
+        user_answer=body.user_answer,
+        feedback=body.feedback,
+        followup_question=body.followup_question,
+        history=[m.model_dump() for m in body.history],
+    )
+    return FollowupResponse(answer=answer)
 
 
 @router.post("/answer")

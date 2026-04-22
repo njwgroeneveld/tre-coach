@@ -33,3 +33,18 @@ class FeedbackResponse(BaseModel):
 class HintResponse(BaseModel):
     hint: str
     hint_number: int
+
+class FollowupMessage(BaseModel):
+    role: str  # 'user' or 'coach'
+    text: str
+
+class FollowupRequest(BaseModel):
+    question: str
+    subtopic: str
+    user_answer: str
+    feedback: str
+    followup_question: str
+    history: list[FollowupMessage] = []
+
+class FollowupResponse(BaseModel):
+    answer: str

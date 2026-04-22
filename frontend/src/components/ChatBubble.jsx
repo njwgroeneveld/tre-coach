@@ -47,6 +47,15 @@ export default function ChatBubble({ role, text, subtopic }) {
     )
   }
 
+  if (role === 'followup') {
+    return (
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-4">
+        <span className="text-xs text-blue-400 uppercase tracking-wide mb-2 block">Coach</span>
+        <p className="text-gray-100 text-sm whitespace-pre-wrap">{text}</p>
+      </div>
+    )
+  }
+
   if (role === 'pi') {
     return (
       <div className="bg-gray-900 border border-gray-700 rounded-2xl p-4">
