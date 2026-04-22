@@ -31,7 +31,10 @@ def get_topic_level(user_id: str, topic: str) -> str:
 
 def save_answer(session_id: str, question: str, question_type: str,
                 subtopic: str, user_answer: str, feedback: str, score: int,
-                interview_taal: str, pi_commando: str):
+                interview_answer: str, pi_commando: str,
+                grammar_score: int | None, vocabulary_score: int | None,
+                structure_score: int | None, fluency_score: int | None,
+                english_tips: str):
     client.table("answers").insert({
         "session_id": session_id,
         "question": question,
@@ -40,11 +43,15 @@ def save_answer(session_id: str, question: str, question_type: str,
         "user_answer": user_answer,
         "feedback": feedback,
         "score": score,
-        "interview_taal": interview_taal,
+        "interview_taal": interview_answer,
         "pi_commando": pi_commando,
+        "grammar_score": grammar_score,
+        "vocabulary_score": vocabulary_score,
+        "structure_score": structure_score,
+        "fluency_score": fluency_score,
+        "english_tips": english_tips,
     }).execute()
 
-    # Update topic_scores
     session = client.table("sessions").select("user_id, topic").eq("id", session_id).execute()
     user_id = session.data[0]["user_id"]
     topic = session.data[0]["topic"]
@@ -177,4 +184,79 @@ def get_dashboard_data(user_id: str) -> dict:
         "recent_sessions": sessions,
         "weak_subtopics": weak,
         "levels": level_map,
+    }
+
+
+def get_english_coach_data(user_id: str) -> dict:
+    from collections import defaultdict
+
+    sessions = client.table("sessions").select("id").eq("user_id", user_id).execute()
+    session_ids = [s["id"] for s in sessions.data]
+
+    if not session_ids:
+        return {
+            "recent_answers": [],
+            "trends": [],
+            "weakest_category": None,
+            "recommendation": "Complete a session to see your English progress.",
+        }
+
+    answers = client.table("answers").select(
+        "id, session_id, question, user_answer, grammar_score, vocabulary_score, "
+        "structure_score, fluency_score, english_tips, created_at"
+    ).in_("session_id", session_ids).order("created_at", desc=True).limit(50).execute()
+
+    rows = [r for r in answers.data if r.get("grammar_score") is not None]
+
+    recent_answers = rows[:10]
+
+    session_rows_map = defaultdict(list)
+    session_date_map = {}
+    for r in reversed(rows):
+        session_rows_map[r["session_id"]].append(r)
+        session_date_map[r["session_id"]] = r["created_at"]
+
+    def avg(values):
+        filtered = [v for v in values if v is not None]
+        return round(sum(filtered) / len(filtered), 1) if filtered else None
+
+    trends = []
+    for sid in sorted(session_rows_map, key=lambda s: session_date_map[s]):
+        sr = session_rows_map[sid]
+        trends.append({
+            "session_id": sid,
+            "grammar_avg": avg([r["grammar_score"] for r in sr]),
+            "vocabulary_avg": avg([r["vocabulary_score"] for r in sr]),
+            "structure_avg": avg([r["structure_score"] for r in sr]),
+            "fluency_avg": avg([r["fluency_score"] for r in sr]),
+            "created_at": session_date_map[sid],
+        })
+
+    recent_ten = rows[:10]
+    category_avgs = {
+        "grammar": avg([r["grammar_score"] for r in recent_ten]),
+        "vocabulary": avg([r["vocabulary_score"] for r in recent_ten]),
+        "structure": avg([r["structure_score"] for r in recent_ten]),
+        "fluency": avg([r["fluency_score"] for r in recent_ten]),
+    }
+    filled = {k: v for k, v in category_avgs.items() if v is not None}
+    weakest_category = min(filled, key=filled.get) if filled else None
+
+    recommendations = {
+        "grammar": "Focus on verb tenses and sentence structure. Use complete sentences with clear subject-verb-object order.",
+        "vocabulary": "Expand your technical vocabulary. Replace 'check' with 'inspect', 'monitor', or 'diagnose'. Use precise terms.",
+        "structure": "Structure answers as: 1) Identify, 2) Investigate, 3) Fix, 4) Verify. Use 'First...', 'Then...', 'Finally...'",
+        "fluency": "Vary sentence length and use linking words: 'therefore', 'however', 'as a result', 'consequently'.",
+    }
+    recommendation = (
+        recommendations.get(weakest_category, "Keep practicing!")
+        if weakest_category
+        else "Complete more sessions to see personalised recommendations."
+    )
+
+    return {
+        "recent_answers": recent_answers,
+        "trends": trends,
+        "weakest_category": weakest_category,
+        "recommendation": recommendation,
     }
