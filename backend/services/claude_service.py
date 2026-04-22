@@ -42,27 +42,27 @@ SUBTOPICS = {
 }
 
 TRADING_CONTEXT = {
-    "websocket": "WebSocket verbinding met exchange verloren — orders komen niet door.",
-    "port_exhaustion": "Port exhaustion — bot kan geen nieuwe verbindingen openen naar de exchange.",
-    "dns_problemen": "DNS timeout — bot kan exchange niet vinden.",
-    "crashloopbackoff": "Trading bot pod crasht steeds — orders worden niet verwerkt.",
-    "rolling_updates": "Nieuwe versie uitrollen terwijl markt open is.",
-    "resource_limits": "Bot gestopt door Kubernetes wegens te veel geheugen tijdens hoge volatiliteit.",
-    "slippage_en_latency": "Trader meldt slechte fills — orders worden op slechtere prijs uitgevoerd dan verwacht.",
-    "incident_response": "Trading bot is 3 minuten offline — traders klagen.",
-    "release_management": "Nieuwe versie deployen terwijl markt open is — wat is je aanpak?",
+    "websocket": "WebSocket connection to exchange lost — orders are not getting through.",
+    "port_exhaustion": "Port exhaustion — the bot cannot open new connections to the exchange.",
+    "dns_problemen": "DNS timeout — the bot cannot resolve the exchange hostname.",
+    "crashloopbackoff": "Trading bot pod is crash-looping — orders are not being processed.",
+    "rolling_updates": "Rolling out a new version while the market is open.",
+    "resource_limits": "Bot killed by Kubernetes OOM during high volatility.",
+    "slippage_en_latency": "Trader reports bad fills — orders are executing at worse prices than expected.",
+    "incident_response": "Trading bot has been offline for 3 minutes — traders are complaining.",
+    "release_management": "Deploying a new version while the market is open — what is your approach?",
 }
 
 LEVEL_CONTEXT = {
     "basis": (
-        "Basis niveau — feilloos te beheersen voor de sollicitatie. "
-        "Stel herkenbare vragen over veelvoorkomende situaties met één duidelijke aanpak. "
-        "Geen edge cases. Geschikt voor iemand met enige Linux/K8s ervaring."
+        "Foundation level — must be mastered perfectly for the interview. "
+        "Ask recognisable questions about common situations with one clear approach. "
+        "No edge cases. Suitable for someone with some Linux/K8s experience."
     ),
     "gemiddeld": (
-        "Gemiddeld niveau — wat IMC verwacht bij 2+ jaar ervaring. "
-        "Stel praktische vragen met meerdere mogelijke oorzaken. "
-        "Koppel aan trading impact. Kandidaat moet kunnen redeneren, niet alleen commando's opnoemen."
+        "Intermediate level — what IMC expects at 2+ years of experience. "
+        "Ask practical questions with multiple possible root causes. "
+        "Link to trading impact. The candidate must reason, not just list commands."
     ),
 }
 
@@ -75,20 +75,20 @@ def generate_question(subtopic: str, question_type: str, level: str = "basis") -
     level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
 
     if question_type == "scenario":
-        prompt = f"""Genereer één scenario-vraag voor een Trading Reliability Engineer (TRE) trainee over '{subtopic}'.
-De vraag beschrijft een concreet productieprobleem. De kandidaat legt stap voor stap zijn aanpak uit.
+        prompt = f"""Generate one scenario question for a Trading Reliability Engineer (TRE) trainee about '{subtopic}'.
+The question describes a concrete production problem. The candidate explains their approach step by step.
 {trading_hint}
 
-Niveau: {level.upper()} — {level_instruction}
+Level: {level.upper()} — {level_instruction}
 
-Schrijf alleen de vraag, geen antwoord. Maximaal 4 zinnen. Schrijf in het Nederlands."""
+Write only the question, no answer. Maximum 4 sentences. Write in English."""
     else:
-        prompt = f"""Genereer één commando-flitsvraag voor een TRE trainee over '{subtopic}'.
-Vraag naar een specifiek commando of wat de output ervan betekent.
+        prompt = f"""Generate one command flash-card question for a TRE trainee about '{subtopic}'.
+Ask about a specific command or what its output means.
 
-Niveau: {level.upper()} — {level_instruction}
+Level: {level.upper()} — {level_instruction}
 
-Schrijf alleen de vraag. Maximaal 2 zinnen. Schrijf in het Nederlands."""
+Write only the question. Maximum 2 sentences. Write in English."""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
@@ -100,20 +100,20 @@ Schrijf alleen de vraag. Maximaal 2 zinnen. Schrijf in het Nederlands."""
 
 def generate_hint(question: str, subtopic: str, hint_number: int, previous_answer: str = "") -> str:
     hint_instructions = {
-        1: "Wijs een richting aan zonder het antwoord te geven. Één zin.",
-        2: "Noem een specifiek commando of concept dat relevant is. Maximaal 2 zinnen.",
-        3: "Leg uit wat je zou zien als je het juiste pad volgt. Maximaal 3 zinnen.",
+        1: "Point in a direction without giving away the answer. One sentence.",
+        2: "Name a specific command or concept that is relevant. Maximum 2 sentences.",
+        3: "Explain what you would expect to see if you follow the right path. Maximum 3 sentences.",
     }
     instruction = hint_instructions.get(hint_number, hint_instructions[1])
 
-    prompt = f"""Je bent een TRE-mentor. Een trainee heeft moeite met deze vraag.
+    prompt = f"""You are a TRE mentor. A trainee is struggling with this question.
 
-Vraag: {question}
-Onderwerp: {subtopic}
-{f"Laatste antwoord van trainee: {previous_answer}" if previous_answer else ""}
+Question: {question}
+Topic: {subtopic}
+{f"Trainee's last answer: {previous_answer}" if previous_answer else ""}
 
-Geef hint {hint_number}/3: {instruction}
-Schrijf in het Nederlands. Geef NIET het volledige antwoord."""
+Give hint {hint_number}/3: {instruction}
+Write in English. Do NOT give the full answer."""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
@@ -127,16 +127,16 @@ def generate_followup(question: str, subtopic: str, user_answer: str, feedback: 
     messages = [
         {
             "role": "user",
-            "content": f"""Je bent een TRE-mentor bij een trading firm. Een trainee heeft zojuist een oefenvraag beantwoord en wil nu doorvragen.
+            "content": f"""You are a TRE mentor at a trading firm. A trainee has just answered a practice question and wants to ask follow-up questions.
 
-Originele vraag: {question}
-Onderwerp: {subtopic}
-Antwoord van de trainee: {user_answer}
-Jouw feedback was: {feedback}
+Original question: {question}
+Topic: {subtopic}
+Trainee's answer: {user_answer}
+Your feedback was: {feedback}
 
-De trainee kan nu vrij doorvragen. Beantwoord bondig en praktisch in het Nederlands. Focus op begrip, geef concrete voorbeelden of commando's waar relevant."""
+The trainee can now ask freely. Answer concisely and practically in English. Focus on understanding, give concrete examples or commands where relevant."""
         },
-        {"role": "assistant", "content": "Natuurlijk, stel gerust je vraag."}
+        {"role": "assistant", "content": "Of course, go ahead and ask."}
     ]
 
     for msg in history:
@@ -155,30 +155,49 @@ De trainee kan nu vrij doorvragen. Beantwoord bondig en praktisch in het Nederla
 def evaluate_answer(question: str, user_answer: str, subtopic: str, level: str = "basis") -> dict:
     level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
 
-    prompt = f"""Je bent een geduldige TRE-mentor bij een trading firm. Evalueer dit antwoord.
+    prompt = f"""You are a patient TRE mentor at a trading firm. Evaluate this answer.
 
-Niveau: {level.upper()} — {level_instruction}
-Onderwerp: {subtopic}
-Vraag: {question}
-Antwoord van de trainee: {user_answer}
+Level: {level.upper()} — {level_instruction}
+Topic: {subtopic}
+Question: {question}
+Trainee's answer: {user_answer}
 
-Geef je evaluatie in dit exacte formaat:
+Give your evaluation in this exact format:
 
-FEEDBACK: <wat goed was + wat miste de trainee + juiste aanpak, maximaal 150 woorden, in het Nederlands>
-SCORE: <getal 0-10>
-INTERVIEW: <hoe zou je dit in een sollicitatiegesprek bij IMC formuleren, 2-3 zinnen, in het Nederlands>
-PI_COMMANDO: <één of twee concrete Linux/kubectl commando's die de trainee op zijn Raspberry Pi kan uitvoeren om dit te simuleren, met korte uitleg>"""
+FEEDBACK: <what was good + what the trainee missed + correct approach, maximum 150 words>
+SCORE: <integer 0-10>
+INTERVIEW: <how you would phrase this in an IMC interview, 2-3 sentences>
+PI_COMMANDO: <one or two concrete Linux/kubectl commands the trainee can run on a Raspberry Pi to simulate this, with a short explanation>
+GRAMMAR_SCORE: <integer 0-10, evaluate verb tenses, sentence construction, subject-verb agreement>
+VOCABULARY_SCORE: <integer 0-10, evaluate technical term accuracy, word variety, appropriate register>
+STRUCTURE_SCORE: <integer 0-10, evaluate logical flow, clear reasoning steps, answer completeness>
+FLUENCY_SCORE: <integer 0-10, evaluate sentence variety, filler avoidance, use of linking words like therefore/however/as a result>
+ENGLISH_TIP: <one concrete actionable tip to improve English, maximum 20 words, e.g. "Use 'therefore' instead of 'so' to sound more professional">"""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=600,
+        max_tokens=700,
         messages=[{"role": "user", "content": prompt}],
     )
 
     response = message.content[0].text.strip()
-    result = {"feedback": "", "score": 5, "interview_taal": "", "pi_commando": ""}
+    result = {
+        "feedback": "",
+        "score": 5,
+        "interview_answer": "",
+        "pi_commando": "",
+        "grammar_score": None,
+        "vocabulary_score": None,
+        "structure_score": None,
+        "fluency_score": None,
+        "english_tips": "",
+    }
 
-    sections = {"FEEDBACK": "", "SCORE": "", "INTERVIEW": "", "PI_COMMANDO": ""}
+    sections = {
+        "FEEDBACK": "", "SCORE": "", "INTERVIEW": "", "PI_COMMANDO": "",
+        "GRAMMAR_SCORE": "", "VOCABULARY_SCORE": "", "STRUCTURE_SCORE": "",
+        "FLUENCY_SCORE": "", "ENGLISH_TIP": "",
+    }
     current = None
     for line in response.split("\n"):
         for key in sections:
@@ -191,11 +210,20 @@ PI_COMMANDO: <één of twee concrete Linux/kubectl commando's die de trainee op 
                 sections[current] += " " + line.strip()
 
     result["feedback"] = sections["FEEDBACK"].strip()
-    result["interview_taal"] = sections["INTERVIEW"].strip()
+    result["interview_answer"] = sections["INTERVIEW"].strip()
     result["pi_commando"] = sections["PI_COMMANDO"].strip()
-    try:
-        result["score"] = int(sections["SCORE"].strip().split()[0])
-    except (ValueError, IndexError):
-        result["score"] = 5
+    result["english_tips"] = sections["ENGLISH_TIP"].strip()
+
+    for field, key in [
+        ("score", "SCORE"),
+        ("grammar_score", "GRAMMAR_SCORE"),
+        ("vocabulary_score", "VOCABULARY_SCORE"),
+        ("structure_score", "STRUCTURE_SCORE"),
+        ("fluency_score", "FLUENCY_SCORE"),
+    ]:
+        try:
+            result[field] = int(sections[key].strip().split()[0])
+        except (ValueError, IndexError):
+            result[field] = 5 if field == "score" else None
 
     return result
