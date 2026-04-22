@@ -9,6 +9,47 @@ const QUESTIONS_PER_SESSION = 3
 function useVoiceInput(onTranscript) {
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef(null)
+  const listeningRef = useRef(false)
+  const silenceTimerRef = useRef(null)
+
+  function resetSilenceTimer(SR) {
+    clearTimeout(silenceTimerRef.current)
+    silenceTimerRef.current = setTimeout(() => {
+      listeningRef.current = false
+      recognitionRef.current?.stop()
+      setListening(false)
+    }, 5000)
+  }
+
+  function _start(SR) {
+    const recognition = new SR()
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognition.onresult = (e) => {
+      onTranscript(e.results[0][0].transcript)
+      resetSilenceTimer(SR)
+    }
+    recognition.onend = () => {
+      if (listeningRef.current) {
+        setTimeout(() => _start(SR), 100)
+      } else {
+        clearTimeout(silenceTimerRef.current)
+        setListening(false)
+      }
+    }
+    recognition.onerror = (e) => {
+      if (listeningRef.current && e.error !== 'aborted') {
+        setTimeout(() => _start(SR), 100)
+      } else {
+        listeningRef.current = false
+        clearTimeout(silenceTimerRef.current)
+        setListening(false)
+      }
+    }
+    recognitionRef.current = recognition
+    recognition.start()
+  }
 
   function startListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -16,21 +57,16 @@ function useVoiceInput(onTranscript) {
       alert('Speech recognition is not supported in this browser. Please use Chrome.')
       return
     }
-    const recognition = new SR()
-    recognition.lang = 'en-US'
-    recognition.interimResults = false
-    recognition.maxAlternatives = 1
-    recognition.onresult = (e) => onTranscript(e.results[0][0].transcript)
-    recognition.onend = () => setListening(false)
-    recognition.onerror = () => setListening(false)
-    recognitionRef.current = recognition
-    recognition.start()
+    listeningRef.current = true
     setListening(true)
+    _start(SR)
+    resetSilenceTimer(SR)
   }
 
   function stopListening() {
+    listeningRef.current = false
+    clearTimeout(silenceTimerRef.current)
     recognitionRef.current?.stop()
-    setListening(false)
   }
 
   return { listening, startListening, stopListening }
