@@ -19,10 +19,13 @@ def get_user_id(authorization: str) -> str:
 @router.post("/start")
 def start_session(body: StartSessionRequest, authorization: str = Header(...)):
     user_id = get_user_id(authorization)
-    topic = body.topic or random.choice(["linux", "netwerk"])
+    topic = body.topic or random.choice(["linux", "netwerk", "kubernetes"])
     subtopic = get_weakest_subtopic(user_id, topic) or random.choice(SUBTOPICS[topic])
+    # Shuffle subtopics voor deze sessie zodat elke vraag een ander onderwerp heeft
+    subtopics = SUBTOPICS[topic].copy()
+    random.shuffle(subtopics)
     session_id = create_session(user_id, topic, subtopic)
-    return {"session_id": session_id, "topic": topic, "subtopic": subtopic}
+    return {"session_id": session_id, "topic": topic, "subtopic": subtopic, "subtopics": subtopics}
 
 
 @router.post("/question")

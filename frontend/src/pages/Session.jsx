@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import ChatBubble from '../components/ChatBubble'
 
 const API = import.meta.env.VITE_API_URL
-const QUESTIONS_PER_SESSION = 5
+const QUESTIONS_PER_SESSION = 3
 
 export default function Session() {
   const { state: sessionData } = useLocation()
@@ -15,6 +15,8 @@ export default function Session() {
   const [currentQuestion, setCurrentQuestion] = useState(null)
   const [questionCount, setQuestionCount] = useState(0)
   const [totalScore, setTotalScore] = useState(0)
+  const subtopicsRef = useRef(sessionData?.subtopics || [sessionData?.subtopic])
+  const subtopicIndexRef = useRef(0)
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -27,8 +29,12 @@ export default function Session() {
 
   async function fetchQuestion() {
     setLoading(true)
+    const subtopics = subtopicsRef.current
+    const subtopic = subtopics[subtopicIndexRef.current % subtopics.length]
+    subtopicIndexRef.current += 1
+
     const res = await fetch(
-      `${API}/session/question?session_id=${sessionData.session_id}&subtopic=${sessionData.subtopic}`,
+      `${API}/session/question?session_id=${sessionData.session_id}&subtopic=${subtopic}`,
       { method: 'POST' }
     )
     const q = await res.json()
@@ -78,7 +84,7 @@ export default function Session() {
     <div className="min-h-screen bg-gray-950 flex flex-col max-w-2xl mx-auto">
       <div className="p-4 border-b border-gray-800 flex justify-between items-center">
         <div>
-          <h2 className="text-white font-semibold">{sessionData?.topic} — {sessionData?.subtopic?.replace(/_/g, ' ')}</h2>
+          <h2 className="text-white font-semibold">{sessionData?.topic} — {currentQuestion?.subtopic?.replace(/_/g, ' ') || sessionData?.subtopic?.replace(/_/g, ' ')}</h2>
           <p className="text-gray-400 text-xs">{questionCount}/{QUESTIONS_PER_SESSION} vragen</p>
         </div>
         <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white text-sm">Stop</button>

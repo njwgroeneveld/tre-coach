@@ -62,8 +62,11 @@ export default function Dashboard() {
         <button onClick={() => startSession('netwerk')} className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-xl font-medium">
           Netwerk oefenen
         </button>
-        <button onClick={() => startSession(null)} className="col-span-2 bg-gray-700 hover:bg-gray-600 text-white p-4 rounded-xl font-medium">
-          Laat app kiezen (zwakste plek)
+        <button onClick={() => startSession('kubernetes')} className="bg-green-700 hover:bg-green-800 text-white p-4 rounded-xl font-medium">
+          Kubernetes oefenen
+        </button>
+        <button onClick={() => startSession(null)} className="bg-gray-700 hover:bg-gray-600 text-white p-4 rounded-xl font-medium">
+          Zwakste plek
         </button>
       </div>
 
