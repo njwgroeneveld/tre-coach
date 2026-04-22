@@ -13,7 +13,7 @@ export default function TopicCard({ subtopic, correct, total }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-gray-400 text-xs mt-1">{correct}/{total} goed</p>
+      <p className="text-gray-400 text-xs mt-1">{correct}/{total} correct</p>
     </div>
   )
 }
