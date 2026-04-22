@@ -12,75 +12,81 @@ SUBTOPICS = {
         "geheugen_analyse",
         "disk_problemen",
         "file_descriptors",
-        "kernel_parameters",
         "proc_filesystem",
         "logging_journalctl",
     ],
     "netwerk": [
         "tcp_fundamenten",
-        "verbindingsproblemen",
+        "tcp_connection_states",
         "port_exhaustion",
         "dns_problemen",
         "tcpdump",
-        "iptables",
-        "latency",
-        "packet_loss",
         "websocket",
-        "tcp_keepalive",
     ],
     "kubernetes": [
         "pods_en_deployments",
-        "services_en_networking",
-        "resource_limits",
         "crashloopbackoff",
+        "resource_limits",
         "rolling_updates",
-        "configmaps_en_secrets",
+        "services_en_networking",
         "logs_en_debugging",
+    ],
+    "trading": [
+        "slippage_en_latency",
+        "order_types",
+        "exchange_connectiviteit",
+        "incident_response",
+        "release_management",
+        "monitoring_en_alerts",
     ],
 }
 
-TRADING_SCENARIOS = {
+TRADING_CONTEXT = {
     "websocket": "WebSocket verbinding met exchange verloren — orders komen niet door.",
-    "port_exhaustion": "Port exhaustion door te veel korte verbindingen — bot kan geen nieuwe orders plaatsen.",
+    "port_exhaustion": "Port exhaustion — bot kan geen nieuwe verbindingen openen naar de exchange.",
     "dns_problemen": "DNS timeout — bot kan exchange niet vinden.",
-    "crashloopbackoff": "De trading bot pod crasht steeds opnieuw op — orders worden niet verwerkt.",
-    "rolling_updates": "Een nieuwe versie van de trading service wordt uitgerold maar connecties met de exchange vallen weg.",
-    "resource_limits": "De trading bot wordt door Kubernetes gestopt wegens te veel geheugengebruik tijdens hoge marktvolatiliteit.",
+    "crashloopbackoff": "Trading bot pod crasht steeds — orders worden niet verwerkt.",
+    "rolling_updates": "Nieuwe versie uitrollen terwijl markt open is.",
+    "resource_limits": "Bot gestopt door Kubernetes wegens te veel geheugen tijdens hoge volatiliteit.",
+    "slippage_en_latency": "Trader meldt slechte fills — orders worden op slechtere prijs uitgevoerd dan verwacht.",
+    "incident_response": "Trading bot is 3 minuten offline — traders klagen.",
+    "release_management": "Nieuwe versie deployen terwijl markt open is — wat is je aanpak?",
+}
+
+LEVEL_CONTEXT = {
+    "basis": (
+        "Basis niveau — feilloos te beheersen voor de sollicitatie. "
+        "Stel herkenbare vragen over veelvoorkomende situaties met één duidelijke aanpak. "
+        "Geen edge cases. Geschikt voor iemand met enige Linux/K8s ervaring."
+    ),
+    "gemiddeld": (
+        "Gemiddeld niveau — wat IMC verwacht bij 2+ jaar ervaring. "
+        "Stel praktische vragen met meerdere mogelijke oorzaken. "
+        "Koppel aan trading impact. Kandidaat moet kunnen redeneren, niet alleen commando's opnoemen."
+    ),
 }
 
 
-DIFFICULTY_CONTEXT = {
-    1: "De kandidaat is een absolute beginner. Stel alleen basisvragen: wat is X, waarvoor gebruik je Y. Geen edge cases, geen productiedruk.",
-    2: "De kandidaat heeft basiskennis. Stel vragen over herkenbare situaties met één duidelijke aanpak. Licht niveau voor iemand met ~1 jaar ervaring.",
-    3: "De kandidaat heeft ~2 jaar ervaring. Stel praktische vragen over veelvoorkomende problemen. Dit is het niveau voor een junior TRE sollicitatie bij IMC.",
-    4: "De kandidaat is medior. Stel complexere vragen met meerdere mogelijke oorzaken en trade-offs.",
-    5: "De kandidaat is senior. Stel diepgaande vragen over edge cases, performance optimalisatie en systeemontwerp.",
-}
-
-# Huidige moeilijkheidsgraad — begin makkelijk, schaal op naarmate kennis groeit
-DIFFICULTY = 2
-
-
-def generate_question(subtopic: str, question_type: str) -> str:
+def generate_question(subtopic: str, question_type: str, level: str = "basis") -> str:
     trading_hint = ""
-    if subtopic in TRADING_SCENARIOS:
-        trading_hint = f"\nGeef de vraag een trading context: {TRADING_SCENARIOS[subtopic]}"
+    if subtopic in TRADING_CONTEXT:
+        trading_hint = f"\nTrading context: {TRADING_CONTEXT[subtopic]}"
 
-    difficulty_instruction = DIFFICULTY_CONTEXT[DIFFICULTY]
+    level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
 
     if question_type == "scenario":
-        prompt = f"""Genereer één scenario-vraag voor een Trading Reliability Engineer (TRE) over het onderwerp '{subtopic}'.
-De vraag beschrijft een productieprobleem. De kandidaat moet zijn aanpak stap voor stap uitleggen.
+        prompt = f"""Genereer één scenario-vraag voor een Trading Reliability Engineer (TRE) trainee over '{subtopic}'.
+De vraag beschrijft een concreet productieprobleem. De kandidaat legt stap voor stap zijn aanpak uit.
 {trading_hint}
 
-Moeilijkheidsgraad {DIFFICULTY}/5: {difficulty_instruction}
+Niveau: {level.upper()} — {level_instruction}
 
 Schrijf alleen de vraag, geen antwoord. Maximaal 4 zinnen. Schrijf in het Nederlands."""
     else:
-        prompt = f"""Genereer één commando-flitsvraag voor een Trading Reliability Engineer (TRE) over '{subtopic}'.
-Vraag naar een specifiek Linux/netwerk commando of wat de output ervan betekent.
+        prompt = f"""Genereer één commando-flitsvraag voor een TRE trainee over '{subtopic}'.
+Vraag naar een specifiek commando of wat de output ervan betekent.
 
-Moeilijkheidsgraad {DIFFICULTY}/5: {difficulty_instruction}
+Niveau: {level.upper()} — {level_instruction}
 
 Schrijf alleen de vraag. Maximaal 2 zinnen. Schrijf in het Nederlands."""
 
@@ -92,48 +98,75 @@ Schrijf alleen de vraag. Maximaal 2 zinnen. Schrijf in het Nederlands."""
     return message.content[0].text.strip()
 
 
-def evaluate_answer(question: str, user_answer: str, subtopic: str) -> tuple[str, int]:
-    prompt = f"""Je bent een geduldige TRE-mentor bij een trading firm. Evalueer dit antwoord op moeilijkheidsgraad {DIFFICULTY}/5.
+def generate_hint(question: str, subtopic: str, hint_number: int, previous_answer: str = "") -> str:
+    hint_instructions = {
+        1: "Wijs een richting aan zonder het antwoord te geven. Één zin.",
+        2: "Noem een specifiek commando of concept dat relevant is. Maximaal 2 zinnen.",
+        3: "Leg uit wat je zou zien als je het juiste pad volgt. Maximaal 3 zinnen.",
+    }
+    instruction = hint_instructions.get(hint_number, hint_instructions[1])
 
-Moeilijkheidsgraad context: {DIFFICULTY_CONTEXT[DIFFICULTY]}
+    prompt = f"""Je bent een TRE-mentor. Een trainee heeft moeite met deze vraag.
 
-Onderwerp: {subtopic}
 Vraag: {question}
-Antwoord van de kandidaat: {user_answer}
+Onderwerp: {subtopic}
+{f"Laatste antwoord van trainee: {previous_answer}" if previous_answer else ""}
 
-Geef:
-1. Wat goed was aan het antwoord.
-2. Wat de kandidaat miste of beter had kunnen zeggen — leg het uit alsof je het uitlegt aan iemand die het nog aan het leren is.
-3. Een score van 0-10, waarbij je rekening houdt met het verwachte niveau (moeilijkheidsgraad {DIFFICULTY}).
-
-Formaat (gebruik exact dit formaat):
-FEEDBACK: <jouw feedback in het Nederlands, maximaal 150 woorden>
-SCORE: <getal 0-10>"""
+Geef hint {hint_number}/3: {instruction}
+Schrijf in het Nederlands. Geef NIET het volledige antwoord."""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=500,
+        max_tokens=150,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return message.content[0].text.strip()
+
+
+def evaluate_answer(question: str, user_answer: str, subtopic: str, level: str = "basis") -> dict:
+    level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
+
+    prompt = f"""Je bent een geduldige TRE-mentor bij een trading firm. Evalueer dit antwoord.
+
+Niveau: {level.upper()} — {level_instruction}
+Onderwerp: {subtopic}
+Vraag: {question}
+Antwoord van de trainee: {user_answer}
+
+Geef je evaluatie in dit exacte formaat:
+
+FEEDBACK: <wat goed was + wat miste de trainee + juiste aanpak, maximaal 150 woorden, in het Nederlands>
+SCORE: <getal 0-10>
+INTERVIEW: <hoe zou je dit in een sollicitatiegesprek bij IMC formuleren, 2-3 zinnen, in het Nederlands>
+PI_COMMANDO: <één of twee concrete Linux/kubectl commando's die de trainee op zijn Raspberry Pi kan uitvoeren om dit te simuleren, met korte uitleg>"""
+
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=600,
         messages=[{"role": "user", "content": prompt}],
     )
 
     response = message.content[0].text.strip()
-    feedback = ""
-    score = 5
+    result = {"feedback": "", "score": 5, "interview_taal": "", "pi_commando": ""}
 
-    if "SCORE:" in response:
-        parts = response.split("SCORE:")
-        score_str = parts[-1].strip().split()[0]
-        try:
-            score = int(score_str)
-        except ValueError:
-            score = 5
-        feedback_part = parts[0]
-    else:
-        feedback_part = response
+    sections = {"FEEDBACK": "", "SCORE": "", "INTERVIEW": "", "PI_COMMANDO": ""}
+    current = None
+    for line in response.split("\n"):
+        for key in sections:
+            if line.startswith(f"{key}:"):
+                current = key
+                sections[key] = line.split(f"{key}:", 1)[1].strip()
+                break
+        else:
+            if current and line.strip():
+                sections[current] += " " + line.strip()
 
-    if "FEEDBACK:" in feedback_part:
-        feedback = feedback_part.split("FEEDBACK:", 1)[1].strip()
-    else:
-        feedback = feedback_part.strip()
+    result["feedback"] = sections["FEEDBACK"].strip()
+    result["interview_taal"] = sections["INTERVIEW"].strip()
+    result["pi_commando"] = sections["PI_COMMANDO"].strip()
+    try:
+        result["score"] = int(sections["SCORE"].strip().split()[0])
+    except (ValueError, IndexError):
+        result["score"] = 5
 
-    return feedback, score
+    return result
