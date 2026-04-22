@@ -6,6 +6,36 @@ import ChatBubble from '../components/ChatBubble'
 const API = import.meta.env.VITE_API_URL
 const QUESTIONS_PER_SESSION = 3
 
+function useVoiceInput(onTranscript) {
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef(null)
+
+  function startListening() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) {
+      alert('Speech recognition is not supported in this browser. Please use Chrome.')
+      return
+    }
+    const recognition = new SR()
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognition.onresult = (e) => onTranscript(e.results[0][0].transcript)
+    recognition.onend = () => setListening(false)
+    recognition.onerror = () => setListening(false)
+    recognitionRef.current = recognition
+    recognition.start()
+    setListening(true)
+  }
+
+  function stopListening() {
+    recognitionRef.current?.stop()
+    setListening(false)
+  }
+
+  return { listening, startListening, stopListening }
+}
+
 export default function Session() {
   const { state: sessionData } = useLocation()
   const navigate = useNavigate()
@@ -23,6 +53,10 @@ export default function Session() {
   const subtopicsRef = useRef(sessionData?.subtopics || [sessionData?.subtopic])
   const subtopicIndexRef = useRef(0)
   const bottomRef = useRef(null)
+
+  const { listening, startListening, stopListening } = useVoiceInput((transcript) => {
+    setInput(prev => prev ? prev + ' ' + transcript : transcript)
+  })
 
   useEffect(() => { fetchQuestion() }, [])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
@@ -107,8 +141,9 @@ export default function Session() {
 
     setMessages(prev => [...prev,
       { role: 'feedback', text: result.feedback },
-      ...(result.interview_taal ? [{ role: 'interview', text: `🎤 Interview: ${result.interview_taal}` }] : []),
-      ...(result.pi_commando ? [{ role: 'pi', text: `🍓 Pi simulatie:\n${result.pi_commando}` }] : []),
+      ...(result.grammar_score != null ? [{ role: 'english', text: result }] : []),
+      ...(result.interview_answer ? [{ role: 'interview', text: `🎤 Interview: ${result.interview_answer}` }] : []),
+      ...(result.pi_commando ? [{ role: 'pi', text: `🍓 Pi simulation:\n${result.pi_commando}` }] : []),
     ])
 
     setFollowUpMode(true)
@@ -156,7 +191,7 @@ export default function Session() {
     }
   }
 
-  const levelLabel = sessionData?.level === 'gemiddeld' ? 'Gemiddeld' : 'Basis'
+  const levelLabel = sessionData?.level === 'gemiddeld' ? 'Intermediate' : 'Foundation'
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col max-w-2xl mx-auto">
@@ -165,7 +200,7 @@ export default function Session() {
           <h2 className="text-white font-semibold">
             {sessionData?.topic} — {currentQuestion?.subtopic?.replace(/_/g, ' ') || sessionData?.subtopic?.replace(/_/g, ' ')}
           </h2>
-          <p className="text-gray-400 text-xs">{levelLabel} · {questionCount}/{QUESTIONS_PER_SESSION} vragen</p>
+          <p className="text-gray-400 text-xs">{levelLabel} · {questionCount}/{QUESTIONS_PER_SESSION} questions</p>
         </div>
         <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white text-sm">Stop</button>
       </div>
@@ -179,13 +214,13 @@ export default function Session() {
       <div className="border-t border-gray-800">
         {followUpMode ? (
           <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-            <p className="text-gray-500 text-xs">💬 Stel gerust meer vragen over dit onderwerp</p>
+            <p className="text-gray-500 text-xs">💬 Ask follow-up questions about this topic</p>
             <button
               onClick={handleNextQuestion}
               disabled={loading}
               className="text-blue-400 hover:text-blue-300 text-sm font-medium disabled:opacity-50"
             >
-              Volgende vraag →
+              Next question →
             </button>
           </div>
         ) : (
@@ -196,7 +231,7 @@ export default function Session() {
                 disabled={loading}
                 className="text-yellow-400 hover:text-yellow-300 text-sm disabled:opacity-50"
               >
-                💡 Hint {hintsUsed + 1}/3 — kom ik er niet helemaal uit
+                💡 Hint {hintsUsed + 1}/3 — I need a nudge
               </button>
             </div>
           )
@@ -206,14 +241,27 @@ export default function Session() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSubmit(e)}
-            placeholder={followUpMode ? 'Stel een vervolgvraag...' : 'Typ je antwoord... (Shift+Enter voor nieuwe regel)'}
+            placeholder={followUpMode ? 'Ask a follow-up question...' : 'Type your answer... (Shift+Enter for new line)'}
             rows={3}
             disabled={loading}
             className="flex-1 bg-gray-800 text-white p-3 rounded-xl resize-none text-sm disabled:opacity-50"
           />
-          <button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-xl disabled:opacity-50">
-            {followUpMode ? 'Vraag' : 'Stuur'}
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={listening ? stopListening : startListening}
+              disabled={loading}
+              title={listening ? 'Stop recording' : 'Speak your answer'}
+              className={`p-3 rounded-xl text-white disabled:opacity-50 ${
+                listening ? 'bg-red-600 hover:bg-red-700 animate-pulse' : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+            >
+              {listening ? '⏹' : '🎤'}
+            </button>
+            <button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-xl disabled:opacity-50 flex-1">
+              {followUpMode ? 'Ask' : 'Send'}
+            </button>
+          </div>
         </form>
       </div>
     </div>
