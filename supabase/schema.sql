@@ -22,6 +22,11 @@ create table answers (
   score integer not null,
   interview_taal text default '',
   pi_commando text default '',
+  grammar_score    integer,
+  vocabulary_score integer,
+  structure_score  integer,
+  fluency_score    integer,
+  english_tips     text default '',
   created_at timestamptz default now()
 );
 
