@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Session from './pages/Session'
 import Results from './pages/Results'
+import Coach from './pages/Coach'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/" element={session ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/session" element={session ? <Session /> : <Navigate to="/login" />} />
         <Route path="/results" element={session ? <Results /> : <Navigate to="/login" />} />
+        <Route path="/coach" element={session ? <Coach /> : <Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
   )
