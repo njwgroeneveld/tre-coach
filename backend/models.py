@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 class StartSessionRequest(BaseModel):
     topic: str | None = None
-    level: str | None = None  # None = app bepaalt op basis van voortgang
+    level: str | None = None
 
 class AnswerRequest(BaseModel):
     session_id: str
@@ -26,9 +26,14 @@ class QuestionResponse(BaseModel):
 
 class FeedbackResponse(BaseModel):
     feedback: str
-    interview_taal: str
+    interview_answer: str
     pi_commando: str
     session_id: str
+    grammar_score: int | None = None
+    vocabulary_score: int | None = None
+    structure_score: int | None = None
+    fluency_score: int | None = None
+    english_tips: str = ""
 
 class HintResponse(BaseModel):
     hint: str
