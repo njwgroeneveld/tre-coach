@@ -60,7 +60,6 @@ function useVoiceInput(onTranscript) {
     listeningRef.current = true
     setListening(true)
     _start(SR)
-    resetSilenceTimer(SR)
   }
 
   function stopListening() {
