@@ -1,6 +1,8 @@
 import os
+import random
 import anthropic
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -270,3 +272,70 @@ ENGLISH_TIP: <one concrete actionable tip to improve English, maximum 20 words, 
             result[field] = 5 if field == "score" else None
 
     return result
+
+
+# --- Investigation mode -------------------------------------------------------------------------
+
+# The scenario is the ground truth for the simulated host and the grading, so it gets the stronger
+# model: Haiku produced technically wrong causes and facts that contradicted each other.
+INVESTIGATION_MODEL = "claude-sonnet-5-5"
+
+# Varying the host keeps scenarios from all landing on the same machine.
+INVESTIGATION_HOSTS = [
+    "a bare-metal order gateway (Linux, 16 cores)",
+    "a market-data feed handler running as a Kubernetes pod",
+    "a risk engine on a Linux VM",
+    "a trading bot running under systemd on a single Linux server",
+    "a co-located exchange connectivity host with two NICs",
+]
+
+
+class InvestigationScenario(BaseModel):
+    symptom: str
+    cause: str
+    facts: list[str]
+    fix: str
+    fastest_path: list[str]
+
+
+def generate_investigation(subtopic: str, level: str = "basis") -> InvestigationScenario:
+    level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
+    focus = SUBTOPIC_FOCUS.get(subtopic, subtopic)
+    host = random.choice(INVESTIGATION_HOSTS)
+    red_herring = (
+        "Add one plausible red herring among the facts: something that looks suspicious but is not the cause."
+        if level == "gemiddeld" else "No red herrings: one clear cause."
+    )
+
+    prompt = f"""You design a hands-on troubleshooting exercise for a Trading Reliability Engineer trainee.
+A simulator will later play the host and answer the trainee's commands, so the scenario must be concrete.
+
+Topic: {subtopic} — {focus}
+Host: {host}
+Level: {level.upper()} — {level_instruction}
+
+Fields:
+- symptom: what a trader or an alert reports, 2-3 sentences. No metrics, no cause, no hint, no tool names.
+  The last sentence must be exactly: "How would you investigate?"
+- cause: the single root cause, one sentence, specific (which process, which resource, why).
+- facts: 10-15 concrete facts the simulator must stay consistent with: hostname, CPU count, RAM,
+  disks or NICs with device names, the relevant processes with PIDs, how often and how long the
+  problem occurs, and the numbers the key commands would show during the incident versus normal.
+  {red_herring}
+- fix: mitigation first, then the root-cause fix, 2-3 sentences.
+- fastest_path: 3-5 commands an experienced engineer would run in order, each with what it reveals."""
+
+    message = client.beta.messages.parse(
+        model=INVESTIGATION_MODEL,
+        # Sonnet 5.5 thinks by default and thinking counts toward max_tokens.
+        max_tokens=16000,
+        output_config={"effort": "medium"},
+        messages=[{"role": "user", "content": prompt}],
+        output_format=InvestigationScenario,
+        # On a policy decline the API retries on a fallback model within the same call.
+        betas=["server-side-fallback-2026-07-01"],
+        extra_body={"fallbacks": "default"},
+    )
+    if message.stop_reason == "refusal":
+        raise ClaudeRefusal()
+    return message.parsed_output

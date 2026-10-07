@@ -20,6 +20,17 @@ def create_session(user_id: str, topic: str, subtopic: str, level: str) -> str:
     return result.data[0]["id"]
 
 
+def create_investigation(session_id: str, subtopic: str, level: str, symptom: str, hidden: dict) -> str:
+    result = client.table("investigations").insert({
+        "session_id": session_id,
+        "subtopic": subtopic,
+        "level": level,
+        "symptom": symptom,
+        "hidden": hidden,
+    }).execute()
+    return result.data[0]["id"]
+
+
 def session_belongs_to(session_id: str, user_id: str) -> bool:
     result = client.table("sessions").select("id").eq(
         "id", session_id

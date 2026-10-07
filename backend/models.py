@@ -53,3 +53,12 @@ class FollowupRequest(BaseModel):
 
 class FollowupResponse(BaseModel):
     answer: str
+
+class InvestigationStartRequest(BaseModel):
+    session_id: str
+    subtopic: str
+    level: str = "basis"
+
+class InvestigationStartResponse(BaseModel):
+    investigation_id: str
+    symptom: str
