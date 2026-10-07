@@ -6,6 +6,9 @@ load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
+# Haiku is fast and cheap; set CLAUDE_MODEL (e.g. claude-sonnet-5-5) to switch without a code change.
+MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5")
+
 SUBTOPICS = {
     "linux": [
         "processen_performance",
@@ -106,7 +109,7 @@ The question describes a concrete production problem. The candidate explains the
 {trading_hint}{focus}
 The focus is for you: do not name the commands or tools in the question — choosing them is part of the answer.
 Describe only the symptom as a trader or an alert would report it: no metrics or measurements, never the cause or a hint towards it.
-Do not list possible causes, layers or areas to check. End with an open ask, such as "How would you investigate?"
+Do not list possible causes, layers or areas to check. The last sentence must be exactly: "How would you investigate?"
 
 Level: {level.upper()} — {level_instruction}
 
@@ -121,7 +124,7 @@ Level: {level.upper()} — {level_instruction}
 Write only the question. Maximum 2 sentences. Write in English."""
 
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=MODEL,
         max_tokens=300,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -146,7 +149,7 @@ Give hint {hint_number}/3: {instruction}
 Write in English. Do NOT give the full answer."""
 
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=MODEL,
         max_tokens=150,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -175,7 +178,7 @@ The trainee can now ask freely. Answer concisely and practically in English. Foc
     messages.append({"role": "user", "content": followup_question})
 
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=MODEL,
         max_tokens=400,
         messages=messages,
     )
@@ -195,11 +198,13 @@ In FEEDBACK, name the cause the question had in mind and how to tell it apart fr
 def evaluate_answer(question: str, user_answer: str, subtopic: str, level: str = "basis", question_type: str = "scenario") -> dict:
     level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
     rubric = f"\n{SCENARIO_RUBRIC}\n" if question_type == "scenario" else ""
+    # The subtopic id is Dutch-English ("io_wait_en_dstate"); the focus text says what it means.
+    focus = f"\nTopic means: {SUBTOPIC_FOCUS[subtopic]}" if subtopic in SUBTOPIC_FOCUS else ""
 
     prompt = f"""You are a patient TRE mentor at a trading firm. Evaluate this answer.
 
 Level: {level.upper()} — {level_instruction}
-Topic: {subtopic}
+Topic: {subtopic}{focus}
 Question: {question}
 Trainee's answer: {user_answer}
 {rubric}
@@ -216,7 +221,7 @@ FLUENCY_SCORE: <integer 0-10, evaluate sentence variety, filler avoidance, use o
 ENGLISH_TIP: <one concrete actionable tip to improve English, maximum 20 words, e.g. "Use 'therefore' instead of 'so' to sound more professional">"""
 
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=MODEL,
         max_tokens=700,
         messages=[{"role": "user", "content": prompt}],
     )
