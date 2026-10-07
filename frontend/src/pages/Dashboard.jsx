@@ -10,6 +10,7 @@ const TOPICS = [
   { key: 'netwerk', label: 'TCP/IP Network', emoji: '🌐', color: 'bg-purple-600 hover:bg-purple-700' },
   { key: 'kubernetes', label: 'Kubernetes', emoji: '☸️', color: 'bg-green-700 hover:bg-green-800' },
   { key: 'trading', label: 'Trading Context', emoji: '📈', color: 'bg-orange-600 hover:bg-orange-700' },
+  { key: 'performance', label: 'Performance', emoji: '⚡', color: 'bg-red-700 hover:bg-red-800' },
 ]
 
 export default function Dashboard() {
@@ -69,7 +70,7 @@ export default function Dashboard() {
         <h2 className="text-white font-semibold mb-3">Your level</h2>
         <div className="grid grid-cols-2 gap-2">
           {TOPICS.map(t => (
-            <div key={t.key} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+            <div key={t.key} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 odd:last:col-span-2">
               <span className="text-gray-300 text-sm">{t.emoji} {t.label}</span>
               <span className={`text-xs font-bold px-2 py-1 rounded ${
                 levels[t.key] === 'gemiddeld' ? 'bg-green-800 text-green-300' : 'bg-gray-700 text-gray-400'
@@ -106,7 +107,7 @@ export default function Dashboard() {
             <button
               key={t.key}
               onClick={() => startSession(t.key, levels[t.key] || 'basis')}
-              className={`${t.color} text-white p-4 rounded-xl font-medium text-left`}
+              className={`${t.color} text-white p-4 rounded-xl font-medium text-left odd:last:col-span-2`}
             >
               <span className="block">{t.emoji} {t.label}</span>
               <span className="text-white/70 text-xs">

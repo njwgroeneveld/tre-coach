@@ -39,6 +39,24 @@ SUBTOPICS = {
         "release_management",
         "monitoring_en_alerts",
     ],
+    "performance": [
+        "use_methode",
+        "checklist_60s",
+        "load_vs_cpu",
+        "io_wait_en_dstate",
+        "latency_en_context_switches",
+        "netwerk_retransmits_drops",
+    ],
+}
+
+# What a subtopic must cover — the name alone is too vague for good questions.
+SUBTOPIC_FOCUS = {
+    "use_methode": "Brendan Gregg's USE method: Utilization, Saturation and Errors for every resource (CPU, memory, disk, network).",
+    "checklist_60s": "Brendan Gregg's 60-second checklist: uptime, dmesg | tail, vmstat 1, mpstat -P ALL 1, pidstat 1, iostat -xz 1, free -m, sar -n DEV 1, sar -n TCP,ETCP 1, top — what each shows and in which order.",
+    "load_vs_cpu": "Load average vs CPU usage: run queue, load per core, high load with idle CPU, reading vmstat r/us/sy/id/wa.",
+    "io_wait_en_dstate": "I/O wait and uninterruptible sleep (D state): %iowait, iostat await/%util, finding the process that waits on disk.",
+    "latency_en_context_switches": "Latency on a low-latency trading host: voluntary vs involuntary context switches (pidstat -w), CPU pinning/isolation, noisy neighbours, tail latency.",
+    "netwerk_retransmits_drops": "TCP retransmits and packet drops: sar -n ETCP, netstat -s, ip -s link, ethtool -S, ss -ti — and what they mean for order latency.",
 }
 
 TRADING_CONTEXT = {
@@ -51,6 +69,11 @@ TRADING_CONTEXT = {
     "slippage_en_latency": "Trader reports bad fills — orders are executing at worse prices than expected.",
     "incident_response": "Trading bot has been offline for 3 minutes — traders are complaining.",
     "release_management": "Deploying a new version while the market is open — what is your approach?",
+    "checklist_60s": "A trader says the order gateway host 'feels slow'. You have just logged in and have 60 seconds.",
+    "load_vs_cpu": "Load average on the market-data host is 40 on 16 cores, yet top shows the CPUs mostly idle.",
+    "io_wait_en_dstate": "The trading bot stalls for seconds at a time while a log-rotation job runs.",
+    "latency_en_context_switches": "Order round-trip latency has a long tail since a batch job was scheduled on the same host.",
+    "netwerk_retransmits_drops": "Order acknowledgements from the exchange arrive late in bursts, but the exchange says its side is fine.",
 }
 
 LEVEL_CONTEXT = {
@@ -71,20 +94,25 @@ def generate_question(subtopic: str, question_type: str, level: str = "basis") -
     trading_hint = ""
     if subtopic in TRADING_CONTEXT:
         trading_hint = f"\nTrading context: {TRADING_CONTEXT[subtopic]}"
+    focus = ""
+    if subtopic in SUBTOPIC_FOCUS:
+        focus = f"\nFocus: {SUBTOPIC_FOCUS[subtopic]}"
 
     level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
 
     if question_type == "scenario":
         prompt = f"""Generate one scenario question for a Trading Reliability Engineer (TRE) trainee about '{subtopic}'.
 The question describes a concrete production problem. The candidate explains their approach step by step.
-{trading_hint}
+{trading_hint}{focus}
+The focus is for you: do not name the commands or tools in the question — choosing them is part of the answer.
 
 Level: {level.upper()} — {level_instruction}
 
 Write only the question, no answer. Maximum 4 sentences. Write in English."""
     else:
         prompt = f"""Generate one command flash-card question for a TRE trainee about '{subtopic}'.
-Ask about a specific command or what its output means.
+Ask about a specific command or what its output means.{focus}
+If you show sample output, make the numbers realistic and consistent with each other.
 
 Level: {level.upper()} — {level_instruction}
 
