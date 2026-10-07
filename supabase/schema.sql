@@ -51,11 +51,29 @@ create table topic_levels (
   unique(user_id, topic)
 );
 
+-- investigations: investigation mode, the trainee finds a hidden root cause command by command
+create table investigations (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid references sessions on delete cascade not null,
+  subtopic text not null,
+  level text not null default 'basis',
+  symptom text not null,                -- shown to the trainee
+  hidden jsonb not null,                -- {cause, facts, fix, fastest_path}: never sent to the frontend
+  steps jsonb not null default '[]',    -- [{input, output}], in order
+  wrong_diagnoses integer not null default 0 check (wrong_diagnoses between 0 and 2),
+  risky_actions integer not null default 0,
+  status text not null default 'open' check (status in ('open', 'solved', 'revealed')),
+  created_at timestamptz default now()
+);
+
 -- Row Level Security
 alter table sessions enable row level security;
 alter table answers enable row level security;
 alter table topic_scores enable row level security;
 alter table topic_levels enable row level security;
+-- RLS on and deliberately no policy: only the backend (service role) can read it, so the
+-- hidden cause cannot be fetched from the browser with the anon key.
+alter table investigations enable row level security;
 
 create policy "own data only" on sessions for all using (auth.uid() = user_id);
 create policy "own data only" on topic_scores for all using (auth.uid() = user_id);
