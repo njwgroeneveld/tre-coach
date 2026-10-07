@@ -23,6 +23,7 @@ class QuestionResponse(BaseModel):
     question_type: str
     subtopic: str
     level: str
+    investigation_id: str | None = None  # only for question_type 'investigation'
 
 class FeedbackResponse(BaseModel):
     feedback: str

@@ -3,6 +3,7 @@ import os
 import jwt
 from dotenv import load_dotenv
 from fastapi import Header, HTTPException
+from services.supabase_service import session_belongs_to
 
 load_dotenv()
 
@@ -21,3 +22,8 @@ def current_user(authorization: str | None = Header(None)) -> str:
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return payload["sub"]
+
+
+def require_own_session(session_id: str, user_id: str):
+    if not session_belongs_to(session_id, user_id):
+        raise HTTPException(status_code=404, detail="Session not found")

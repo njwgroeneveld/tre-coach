@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from auth import current_user
+from auth import current_user, require_own_session
 from models import (
     FeedbackResponse,
     InvestigationDiagnoseRequest,
@@ -10,7 +10,6 @@ from models import (
     InvestigationStepRequest,
     InvestigationStepResponse,
 )
-from routers.session import require_own_session
 from services.claude_service import evaluate_investigation, format_steps, generate_investigation, judge_diagnosis, simulate_step
 from services.causes import pick_cause
 from services.supabase_service import add_investigation_step, create_investigation, get_investigation, recent_cause_ids, save_answer, update_investigation
@@ -40,11 +39,10 @@ def count_commands(steps: list) -> int:
     return sum(1 for s in steps if s.get("kind") != "diagnosis")
 
 
-@router.post("/start")
-def start(body: InvestigationStartRequest, user_id: str = Depends(current_user)) -> InvestigationStartResponse:
-    require_own_session(body.session_id, user_id)
-    cause = pick_cause(body.subtopic, body.level, recent_cause_ids(user_id, body.subtopic))
-    scenario = generate_investigation(body.subtopic, body.level, cause)
+def start_investigation(session_id: str, subtopic: str, level: str, user_id: str) -> tuple[str, str]:
+    """Generate a scenario, store it, and return (investigation_id, symptom)."""
+    cause = pick_cause(subtopic, level, recent_cause_ids(user_id, subtopic))
+    scenario = generate_investigation(subtopic, level, cause)
     # Everything except the symptom stays in the database; the trainee only sees the symptom.
     hidden = {
         "cause_id": cause["id"] if cause else None,
@@ -53,8 +51,15 @@ def start(body: InvestigationStartRequest, user_id: str = Depends(current_user))
         "fix": scenario.fix,
         "fastest_path": scenario.fastest_path,
     }
-    investigation_id = create_investigation(body.session_id, body.subtopic, body.level, scenario.symptom, hidden)
-    return InvestigationStartResponse(investigation_id=investigation_id, symptom=scenario.symptom)
+    investigation_id = create_investigation(session_id, subtopic, level, scenario.symptom, hidden)
+    return investigation_id, scenario.symptom
+
+
+@router.post("/start")
+def start(body: InvestigationStartRequest, user_id: str = Depends(current_user)) -> InvestigationStartResponse:
+    require_own_session(body.session_id, user_id)
+    investigation_id, symptom = start_investigation(body.session_id, body.subtopic, body.level, user_id)
+    return InvestigationStartResponse(investigation_id=investigation_id, symptom=symptom)
 
 
 @router.post("/step")

@@ -1,16 +1,14 @@
 import random
 from fastapi import APIRouter, Depends, HTTPException
-from auth import current_user
+from auth import current_user, require_own_session
 from models import StartSessionRequest, AnswerRequest, HintRequest, QuestionResponse, FeedbackResponse, HintResponse, FollowupRequest, FollowupResponse
 from services.claude_service import generate_question, generate_hint, generate_followup, SUBTOPICS
-from services.supabase_service import create_session, save_answer, get_weakest_subtopic, get_weakest_topic, get_topic_level, session_belongs_to
+from services.supabase_service import create_session, save_answer, get_weakest_subtopic, get_weakest_topic, get_topic_level
+from services.causes import CAUSES
+from routers.investigation import start_investigation
 
 router = APIRouter()
 
-
-def require_own_session(session_id: str, user_id: str):
-    if not session_belongs_to(session_id, user_id):
-        raise HTTPException(status_code=404, detail="Session not found")
 
 
 @router.post("/start")
@@ -43,7 +41,17 @@ def start_session(body: StartSessionRequest, user_id: str = Depends(current_user
 @router.post("/question")
 def get_question(session_id: str, subtopic: str, level: str = "basis", user_id: str = Depends(current_user)):
     require_own_session(session_id, user_id)
-    question_type = "scenario" if random.random() < 0.7 else "command"
+    roll = random.random()
+    if subtopic in CAUSES:
+        # Performance subtopics: 50% investigation, 30% scenario, 20% command.
+        question_type = "investigation" if roll < 0.5 else "scenario" if roll < 0.8 else "command"
+    else:
+        question_type = "scenario" if roll < 0.7 else "command"
+
+    if question_type == "investigation":
+        investigation_id, symptom = start_investigation(session_id, subtopic, level, user_id)
+        return QuestionResponse(question=symptom, question_type=question_type, subtopic=subtopic, level=level,
+                                investigation_id=investigation_id)
     question = generate_question(subtopic, question_type, level)
     return QuestionResponse(question=question, question_type=question_type, subtopic=subtopic, level=level)
 
