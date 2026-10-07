@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import ChatBubble from '../components/ChatBubble'
 
 const API = import.meta.env.VITE_API_URL
-const QUESTIONS_PER_SESSION = 1
+// Performance sessions are one question: an investigation alone takes long enough.
+const questionsPerSession = (topic) => (topic === 'performance' ? 1 : 3)
 
 function useVoiceInput(onTranscript) {
   const [listening, setListening] = useState(false)
@@ -345,7 +346,7 @@ export default function Session() {
   function handleNextQuestion() {
     const newCount = questionCount + 1
     setQuestionCount(newCount)
-    if (newCount >= QUESTIONS_PER_SESSION) {
+    if (newCount >= questionsPerSession(sessionData?.topic)) {
       navigate('/results', { state: { sessionData, questionsAnswered: newCount } })
     } else {
       fetchQuestion()
@@ -374,7 +375,7 @@ export default function Session() {
             {sessionData?.topic} — {subtopicLabel}
           </h2>
           <p className="text-gray-400 text-xs">
-            {levelLabel} · {questionCount}/{QUESTIONS_PER_SESSION} questions
+            {levelLabel} · {questionCount}/{questionsPerSession(sessionData?.topic)} questions
             {investigating && (
               <> · step {MAX_STEPS - investigation.stepsLeft}/{MAX_STEPS} · attempt {MAX_ATTEMPTS - investigation.attemptsLeft + 1}/{MAX_ATTEMPTS}</>
             )}
