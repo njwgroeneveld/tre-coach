@@ -70,10 +70,10 @@ TRADING_CONTEXT = {
     "incident_response": "Trading bot has been offline for 3 minutes — traders are complaining.",
     "release_management": "Deploying a new version while the market is open — what is your approach?",
     "checklist_60s": "A trader says the order gateway host 'feels slow'. You have just logged in and have 60 seconds.",
-    "load_vs_cpu": "Load average on the market-data host is 40 on 16 cores, yet top shows the CPUs mostly idle.",
-    "io_wait_en_dstate": "The trading bot stalls for seconds at a time while a log-rotation job runs.",
-    "latency_en_context_switches": "Order round-trip latency has a long tail since a batch job was scheduled on the same host.",
-    "netwerk_retransmits_drops": "Order acknowledgements from the exchange arrive late in bursts, but the exchange says its side is fine.",
+    "load_vs_cpu": "An alert fires: load average on the market-data host has tripled in ten minutes.",
+    "io_wait_en_dstate": "The trading bot freezes for a few seconds at a time, a few times per hour.",
+    "latency_en_context_switches": "Order round-trip latency is fine on average, but the 99th percentile has doubled since yesterday.",
+    "netwerk_retransmits_drops": "Order acknowledgements from the exchange sometimes arrive tens of milliseconds late; the exchange says its side is fine.",
 }
 
 LEVEL_CONTEXT = {
@@ -105,6 +105,8 @@ def generate_question(subtopic: str, question_type: str, level: str = "basis") -
 The question describes a concrete production problem. The candidate explains their approach step by step.
 {trading_hint}{focus}
 The focus is for you: do not name the commands or tools in the question — choosing them is part of the answer.
+Describe only the symptom as a trader or an alert would report it: no metrics or measurements, never the cause or a hint towards it.
+Do not list possible causes, layers or areas to check. End with an open ask, such as "How would you investigate?"
 
 Level: {level.upper()} — {level_instruction}
 
