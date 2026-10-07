@@ -6,8 +6,8 @@ load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-# Haiku is fast and cheap; set CLAUDE_MODEL (e.g. claude-sonnet-5-5) to switch without a code change.
-MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5")
+# Set CLAUDE_MODEL (e.g. claude-haiku-4-5) to switch model without a code change.
+MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
 
 SUBTOPICS = {
     "linux": [
