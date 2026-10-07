@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import ChatBubble from '../components/ChatBubble'
 
 const API = import.meta.env.VITE_API_URL
-const QUESTIONS_PER_SESSION = 3
+const QUESTIONS_PER_SESSION = 1
 
 function useVoiceInput(onTranscript) {
   const [listening, setListening] = useState(false)
@@ -346,7 +346,7 @@ export default function Session() {
     const newCount = questionCount + 1
     setQuestionCount(newCount)
     if (newCount >= QUESTIONS_PER_SESSION) {
-      navigate('/results', { state: { sessionData } })
+      navigate('/results', { state: { sessionData, questionsAnswered: newCount } })
     } else {
       fetchQuestion()
     }

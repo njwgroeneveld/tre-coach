@@ -1,3 +1,4 @@
+import os
 import random
 from fastapi import APIRouter, Depends, HTTPException
 from auth import current_user, require_own_session
@@ -47,6 +48,10 @@ def get_question(session_id: str, subtopic: str, level: str = "basis", user_id: 
         question_type = "investigation" if roll < 0.5 else "scenario" if roll < 0.8 else "command"
     else:
         question_type = "scenario" if roll < 0.7 else "command"
+    # Local testing only: FORCE_QUESTION_TYPE=investigation|scenario|command (never set in production).
+    forced = os.environ.get("FORCE_QUESTION_TYPE")
+    if forced in ("scenario", "command") or (forced == "investigation" and subtopic in CAUSES):
+        question_type = forced
 
     if question_type == "investigation":
         investigation_id, symptom = start_investigation(session_id, subtopic, level, user_id)

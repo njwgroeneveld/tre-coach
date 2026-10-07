@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 export default function Results() {
   const { state } = useLocation()
   const navigate = useNavigate()
-  const { sessionData } = state || {}
+  const { sessionData, questionsAnswered } = state || {}
 
   const topicLabel = sessionData?.topic
     ? sessionData.topic.charAt(0).toUpperCase() + sessionData.topic.slice(1)
@@ -30,7 +30,7 @@ export default function Results() {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Questions answered</span>
-            <span className="text-white">3</span>
+            <span className="text-white">{questionsAnswered ?? '–'}</span>
           </div>
         </div>
 
