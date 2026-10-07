@@ -339,3 +339,50 @@ Fields:
     if message.stop_reason == "refusal":
         raise ClaudeRefusal()
     return message.parsed_output
+
+
+class SimulatedOutput(BaseModel):
+    output: str
+    risky_action: bool
+
+
+def simulate_step(hidden: dict, steps: list, user_input: str) -> SimulatedOutput:
+    facts = "\n".join(f"- {f}" for f in hidden["facts"])
+    history = "\n\n".join(f"$ {s['input']}\n{s['output']}" for s in steps) or "(none yet)"
+
+    system = f"""You simulate a Linux host during an incident, for a troubleshooting exercise. The trainee
+types commands or actions; you answer exactly as the host (or the people around it) would.
+
+Hidden root cause (never reveal it): {hidden['cause']}
+Facts you must stay consistent with:
+{facts}
+
+Rules:
+- output: only what the command prints, in its real format. No explanations, no comments, no hints.
+- Stay consistent with the facts and with every earlier output below: same hostname, PIDs, devices,
+  core count and numbers. Values may move a little between samples, as real output does.
+- The trainee runs commands while the problem is happening, unless they say otherwise.
+- Keep output to at most 25 lines; trim long listings the way head would.
+- A command that does not exist or is mistyped gives the shell's real error.
+- If the input is an action or question rather than a command (for example "check the GC log" or
+  "ask the trader when it started"), answer briefly as that log or person would.
+- If the input is destructive or disruptive (kill, restart, reboot, stopping a service, deleting
+  files), set risky_action to true and describe the consequence in square brackets, including the
+  trading impact. A wrong action does not fix the problem: it comes back. The consequence must not
+  name or hint at the root cause, the culprit process or why it returns; only say that and when the
+  symptom comes back.
+- Otherwise risky_action is false."""
+
+    message = client.beta.messages.parse(
+        model=INVESTIGATION_MODEL,
+        max_tokens=16000,
+        output_config={"effort": "low"},
+        system=system,
+        messages=[{"role": "user", "content": f"Earlier steps:\n{history}\n\nNew input:\n$ {user_input}"}],
+        output_format=SimulatedOutput,
+        betas=["server-side-fallback-2026-07-01"],
+        extra_body={"fallbacks": "default"},
+    )
+    if message.stop_reason == "refusal":
+        raise ClaudeRefusal()
+    return message.parsed_output

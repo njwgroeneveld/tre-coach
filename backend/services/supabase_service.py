@@ -31,6 +31,18 @@ def create_investigation(session_id: str, subtopic: str, level: str, symptom: st
     return result.data[0]["id"]
 
 
+def get_investigation(investigation_id: str) -> dict | None:
+    result = client.table("investigations").select("*").eq("id", investigation_id).execute()
+    return result.data[0] if result.data else None
+
+
+def add_investigation_step(investigation_id: str, steps: list, risky_actions: int):
+    client.table("investigations").update({
+        "steps": steps,
+        "risky_actions": risky_actions,
+    }).eq("id", investigation_id).execute()
+
+
 def session_belongs_to(session_id: str, user_id: str) -> bool:
     result = client.table("sessions").select("id").eq(
         "id", session_id

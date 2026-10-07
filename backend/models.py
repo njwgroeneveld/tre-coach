@@ -62,3 +62,11 @@ class InvestigationStartRequest(BaseModel):
 class InvestigationStartResponse(BaseModel):
     investigation_id: str
     symptom: str
+
+class InvestigationStepRequest(BaseModel):
+    investigation_id: str
+    input: str
+
+class InvestigationStepResponse(BaseModel):
+    output: str
+    steps_left: int
