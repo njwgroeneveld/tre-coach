@@ -47,6 +47,17 @@ def update_investigation(investigation_id: str, fields: dict):
     client.table("investigations").update(fields).eq("id", investigation_id).execute()
 
 
+def recent_cause_ids(user_id: str, subtopic: str, limit: int = 5) -> list[str]:
+    sessions = client.table("sessions").select("id").eq("user_id", user_id).execute()
+    session_ids = [row["id"] for row in sessions.data]
+    if not session_ids:
+        return []
+    result = client.table("investigations").select("hidden").in_(
+        "session_id", session_ids
+    ).eq("subtopic", subtopic).order("created_at", desc=True).limit(limit).execute()
+    return [row["hidden"].get("cause_id") for row in result.data if row["hidden"].get("cause_id")]
+
+
 def session_belongs_to(session_id: str, user_id: str) -> bool:
     result = client.table("sessions").select("id").eq(
         "id", session_id

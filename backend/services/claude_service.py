@@ -3,6 +3,7 @@ import random
 import anthropic
 from dotenv import load_dotenv
 from pydantic import BaseModel
+from services.causes import CAUSES, pick_cause
 
 load_dotenv()
 
@@ -93,10 +94,6 @@ TRADING_CONTEXT = {
     "incident_response": "Trading bot has been offline for 3 minutes — traders are complaining.",
     "release_management": "Deploying a new version while the market is open — what is your approach?",
     "checklist_60s": "A trader says the order gateway host 'feels slow'. You have just logged in and have 60 seconds.",
-    "load_vs_cpu": "An alert fires: load average on the market-data host has tripled in ten minutes.",
-    "io_wait_en_dstate": "The trading bot freezes for a few seconds at a time, a few times per hour.",
-    "latency_en_context_switches": "Order round-trip latency is fine on average, but the 99th percentile has doubled since yesterday.",
-    "netwerk_retransmits_drops": "Order acknowledgements from the exchange sometimes arrive tens of milliseconds late; the exchange says its side is fine.",
 }
 
 LEVEL_CONTEXT = {
@@ -117,6 +114,9 @@ def generate_question(subtopic: str, question_type: str, level: str = "basis") -
     trading_hint = ""
     if subtopic in TRADING_CONTEXT:
         trading_hint = f"\nTrading context: {TRADING_CONTEXT[subtopic]}"
+    cause = pick_cause(subtopic, level, [])
+    if cause:
+        trading_hint += f"\nWrite the symptom of this root cause (never reveal it): {cause['cause']}"
     focus = ""
     if subtopic in SUBTOPIC_FOCUS:
         focus = f"\nFocus: {SUBTOPIC_FOCUS[subtopic]}"
@@ -205,6 +205,10 @@ def evaluate_answer(question: str, user_answer: str, subtopic: str, level: str =
     rubric = f"\n{SCENARIO_RUBRIC}\n" if question_type == "scenario" else ""
     # The subtopic id is Dutch-English ("io_wait_en_dstate"); the focus text says what it means.
     focus = f"\nTopic means: {SUBTOPIC_FOCUS[subtopic]}" if subtopic in SUBTOPIC_FOCUS else ""
+    # Which cause the question was built on never reaches the browser, so grading gets the options.
+    if question_type == "scenario" and subtopic in CAUSES:
+        options = "; ".join(c["cause"] for c in CAUSES[subtopic])
+        focus += f"\nThe question was written around one of these root causes; infer which from the symptom: {options}"
 
     prompt = f"""You are a patient TRE mentor at a trading firm. Evaluate this answer.
 
@@ -298,8 +302,13 @@ class InvestigationScenario(BaseModel):
     fastest_path: list[str]
 
 
-def generate_investigation(subtopic: str, level: str = "basis") -> InvestigationScenario:
+def generate_investigation(subtopic: str, level: str = "basis", cause: dict | None = None) -> InvestigationScenario:
     level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
+    # The cause is chosen in code, so scenarios vary; Claude builds the host and facts around it.
+    given_cause = (
+        f"\nRoot cause to build the scenario around (make it concrete for this host): {cause['cause']}"
+        if cause else ""
+    )
     focus = SUBTOPIC_FOCUS.get(subtopic, subtopic)
     host = random.choice(INVESTIGATION_HOSTS)
     red_herring = (
@@ -312,7 +321,7 @@ A simulator will later play the host and answer the trainee's commands, so the s
 
 Topic: {subtopic} — {focus}
 Host: {host}
-Level: {level.upper()} — {level_instruction}
+Level: {level.upper()} — {level_instruction}{given_cause}
 
 Fields:
 - symptom: what a trader or an alert reports, 2-3 sentences. No metrics, no cause, no hint, no tool names.

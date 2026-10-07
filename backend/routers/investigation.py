@@ -12,7 +12,8 @@ from models import (
 )
 from routers.session import require_own_session
 from services.claude_service import evaluate_investigation, format_steps, generate_investigation, judge_diagnosis, simulate_step
-from services.supabase_service import add_investigation_step, create_investigation, get_investigation, save_answer, update_investigation
+from services.causes import pick_cause
+from services.supabase_service import add_investigation_step, create_investigation, get_investigation, recent_cause_ids, save_answer, update_investigation
 
 router = APIRouter()
 
@@ -42,9 +43,11 @@ def count_commands(steps: list) -> int:
 @router.post("/start")
 def start(body: InvestigationStartRequest, user_id: str = Depends(current_user)) -> InvestigationStartResponse:
     require_own_session(body.session_id, user_id)
-    scenario = generate_investigation(body.subtopic, body.level)
+    cause = pick_cause(body.subtopic, body.level, recent_cause_ids(user_id, body.subtopic))
+    scenario = generate_investigation(body.subtopic, body.level, cause)
     # Everything except the symptom stays in the database; the trainee only sees the symptom.
     hidden = {
+        "cause_id": cause["id"] if cause else None,
         "cause": scenario.cause,
         "facts": scenario.facts,
         "fix": scenario.fix,
