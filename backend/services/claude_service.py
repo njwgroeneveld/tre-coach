@@ -6,8 +6,30 @@ load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-# Set CLAUDE_MODEL (e.g. claude-haiku-4-5) to switch model without a code change.
-MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
+# The request settings in _ask (effort, fallback) are for Sonnet 5.5; check them when changing model.
+MODEL = "claude-sonnet-5-5"
+
+
+class ClaudeRefusal(Exception):
+    """Claude declined the request (stop_reason "refusal")."""
+
+
+def _ask(messages: list, max_tokens: int, effort: str = "low") -> str:
+    # Thinking is on by default and counts toward max_tokens, so the limits leave room for it;
+    # the prompts themselves cap the length of the answer.
+    message = client.beta.messages.create(
+        model=MODEL,
+        max_tokens=max_tokens,
+        output_config={"effort": effort},
+        messages=messages,
+        # On a policy decline the API retries on a fallback model within the same call.
+        betas=["server-side-fallback-2026-07-01"],
+        extra_body={"fallbacks": "default"},
+    )
+    if message.stop_reason == "refusal":
+        raise ClaudeRefusal()
+    # Read by block type: the response can start with a thinking block.
+    return "".join(b.text for b in message.content if b.type == "text").strip()
 
 SUBTOPICS = {
     "linux": [
@@ -123,12 +145,7 @@ Level: {level.upper()} — {level_instruction}
 
 Write only the question. Maximum 2 sentences. Write in English."""
 
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=300,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return message.content[0].text.strip()
+    return _ask([{"role": "user", "content": prompt}], max_tokens=4000)
 
 
 def generate_hint(question: str, subtopic: str, hint_number: int, previous_answer: str = "") -> str:
@@ -148,12 +165,7 @@ Topic: {subtopic}
 Give hint {hint_number}/3: {instruction}
 Write in English. Do NOT give the full answer."""
 
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=150,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return message.content[0].text.strip()
+    return _ask([{"role": "user", "content": prompt}], max_tokens=4000)
 
 
 def generate_followup(question: str, subtopic: str, user_answer: str, feedback: str, followup_question: str, history: list) -> str:
@@ -177,12 +189,7 @@ The trainee can now ask freely. Answer concisely and practically in English. Foc
 
     messages.append({"role": "user", "content": followup_question})
 
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=400,
-        messages=messages,
-    )
-    return message.content[0].text.strip()
+    return _ask(messages, max_tokens=4000)
 
 
 SCENARIO_RUBRIC = """This is a scenario question: the symptom fits several root causes, and the topic above is only the cause the question writer had in mind.
@@ -220,13 +227,7 @@ STRUCTURE_SCORE: <integer 0-10, evaluate logical flow, clear reasoning steps, an
 FLUENCY_SCORE: <integer 0-10, evaluate sentence variety, filler avoidance, use of linking words like therefore/however/as a result>
 ENGLISH_TIP: <one concrete actionable tip to improve English, maximum 20 words, e.g. "Use 'therefore' instead of 'so' to sound more professional">"""
 
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=700,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    response = message.content[0].text.strip()
+    response = _ask([{"role": "user", "content": prompt}], max_tokens=8000, effort="medium")
     result = {
         "feedback": "",
         "score": 5,
