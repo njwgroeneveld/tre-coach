@@ -109,9 +109,10 @@ export default function Session() {
     const subtopic = subtopics[subtopicIndexRef.current % subtopics.length]
     subtopicIndexRef.current += 1
 
+    const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch(
       `${API}/session/question?session_id=${sessionData.session_id}&subtopic=${subtopic}&level=${sessionData.level}`,
-      { method: 'POST' }
+      { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }
     )
     const q = await res.json()
     setCurrentQuestion(q)
@@ -125,9 +126,10 @@ export default function Session() {
     const nextHint = hintsUsed + 1
     setLoading(true)
 
+    const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch(`${API}/session/hint`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({
         question: currentQuestion.question,
         subtopic: currentQuestion.subtopic,
@@ -192,9 +194,10 @@ export default function Session() {
     setMessages(prev => [...prev, { role: 'user', text: question }])
     setLoading(true)
 
+    const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch(`${API}/session/followup`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({
         question: currentQuestion.question,
         subtopic: currentQuestion.subtopic,

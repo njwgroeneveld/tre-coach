@@ -1,25 +1,20 @@
 import random
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from auth import current_user
 from models import StartSessionRequest, AnswerRequest, HintRequest, QuestionResponse, FeedbackResponse, HintResponse, FollowupRequest, FollowupResponse
 from services.claude_service import generate_question, generate_hint, generate_followup, SUBTOPICS
-from services.supabase_service import create_session, save_answer, get_weakest_subtopic, get_weakest_topic, get_topic_level
+from services.supabase_service import create_session, save_answer, get_weakest_subtopic, get_weakest_topic, get_topic_level, session_belongs_to
 
 router = APIRouter()
 
 
-def get_user_id(authorization: str) -> str:
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    token = authorization.split(" ")[1]
-    import jwt
-    payload = jwt.decode(token, options={"verify_signature": False})
-    return payload["sub"]
+def require_own_session(session_id: str, user_id: str):
+    if not session_belongs_to(session_id, user_id):
+        raise HTTPException(status_code=404, detail="Session not found")
 
 
 @router.post("/start")
-def start_session(body: StartSessionRequest, authorization: str = Header(...)):
-    user_id = get_user_id(authorization)
-
+def start_session(body: StartSessionRequest, user_id: str = Depends(current_user)):
     if body.topic:
         topic = body.topic
         subtopic = get_weakest_subtopic(user_id, topic) or random.choice(SUBTOPICS[topic])
@@ -46,20 +41,21 @@ def start_session(body: StartSessionRequest, authorization: str = Header(...)):
 
 
 @router.post("/question")
-def get_question(session_id: str, subtopic: str, level: str = "basis"):
+def get_question(session_id: str, subtopic: str, level: str = "basis", user_id: str = Depends(current_user)):
+    require_own_session(session_id, user_id)
     question_type = "scenario" if random.random() < 0.7 else "command"
     question = generate_question(subtopic, question_type, level)
     return QuestionResponse(question=question, question_type=question_type, subtopic=subtopic, level=level)
 
 
 @router.post("/hint")
-def get_hint(body: HintRequest) -> HintResponse:
+def get_hint(body: HintRequest, user_id: str = Depends(current_user)) -> HintResponse:
     hint = generate_hint(body.question, body.subtopic, body.hint_number, body.previous_answer)
     return HintResponse(hint=hint, hint_number=body.hint_number)
 
 
 @router.post("/followup")
-def followup(body: FollowupRequest) -> FollowupResponse:
+def followup(body: FollowupRequest, user_id: str = Depends(current_user)) -> FollowupResponse:
     answer = generate_followup(
         question=body.question,
         subtopic=body.subtopic,
@@ -72,7 +68,8 @@ def followup(body: FollowupRequest) -> FollowupResponse:
 
 
 @router.post("/answer")
-def submit_answer(body: AnswerRequest) -> FeedbackResponse:
+def submit_answer(body: AnswerRequest, user_id: str = Depends(current_user)) -> FeedbackResponse:
+    require_own_session(body.session_id, user_id)
     from services.claude_service import evaluate_answer
     result = evaluate_answer(body.question, body.user_answer, body.subtopic, body.level, body.question_type)
     save_answer(
