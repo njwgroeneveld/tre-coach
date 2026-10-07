@@ -182,8 +182,19 @@ The trainee can now ask freely. Answer concisely and practically in English. Foc
     return message.content[0].text.strip()
 
 
-def evaluate_answer(question: str, user_answer: str, subtopic: str, level: str = "basis") -> dict:
+SCENARIO_RUBRIC = """This is a scenario question: the symptom fits several root causes, and the topic above is only the cause the question writer had in mind.
+Grade the approach, not whether the trainee guessed that cause:
+- Hypotheses: does the trainee name several plausible causes, including the intended one?
+- Elimination: for each cause, which command confirms or rules it out, and what output would they expect?
+- Order: cheap, broad checks first, then narrow down.
+- Trading impact: mitigate first, then fix the root cause.
+A different but well-argued cause is not an error. Leaving the intended cause out of the hypotheses is.
+In FEEDBACK, name the cause the question had in mind and how to tell it apart from the others."""
+
+
+def evaluate_answer(question: str, user_answer: str, subtopic: str, level: str = "basis", question_type: str = "scenario") -> dict:
     level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
+    rubric = f"\n{SCENARIO_RUBRIC}\n" if question_type == "scenario" else ""
 
     prompt = f"""You are a patient TRE mentor at a trading firm. Evaluate this answer.
 
@@ -191,7 +202,7 @@ Level: {level.upper()} — {level_instruction}
 Topic: {subtopic}
 Question: {question}
 Trainee's answer: {user_answer}
-
+{rubric}
 Give your evaluation in this exact format:
 
 FEEDBACK: <what was good + what the trainee missed + correct approach, maximum 150 words>

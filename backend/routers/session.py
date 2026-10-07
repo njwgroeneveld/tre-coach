@@ -74,7 +74,7 @@ def followup(body: FollowupRequest) -> FollowupResponse:
 @router.post("/answer")
 def submit_answer(body: AnswerRequest) -> FeedbackResponse:
     from services.claude_service import evaluate_answer
-    result = evaluate_answer(body.question, body.user_answer, body.subtopic, body.level)
+    result = evaluate_answer(body.question, body.user_answer, body.subtopic, body.level, body.question_type)
     save_answer(
         session_id=body.session_id,
         question=body.question,
