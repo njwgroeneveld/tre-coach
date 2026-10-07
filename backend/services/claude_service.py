@@ -341,6 +341,17 @@ Fields:
     return message.parsed_output
 
 
+def format_steps(steps: list) -> str:
+    """The investigation so far as a transcript; a wrong diagnosis and its consequence are part of it."""
+    lines = []
+    for s in steps:
+        if s.get("kind") == "diagnosis":
+            lines.append(f"[diagnosis] {s['input']}\n{s['output']}")
+        else:
+            lines.append(f"$ {s['input']}\n{s['output']}")
+    return "\n\n".join(lines)
+
+
 class SimulatedOutput(BaseModel):
     output: str
     risky_action: bool
@@ -348,7 +359,7 @@ class SimulatedOutput(BaseModel):
 
 def simulate_step(hidden: dict, steps: list, user_input: str) -> SimulatedOutput:
     facts = "\n".join(f"- {f}" for f in hidden["facts"])
-    history = "\n\n".join(f"$ {s['input']}\n{s['output']}" for s in steps) or "(none yet)"
+    history = format_steps(steps) or "(none yet)"
 
     system = f"""You simulate a Linux host during an incident, for a troubleshooting exercise. The trainee
 types commands or actions; you answer exactly as the host (or the people around it) would.
@@ -380,6 +391,107 @@ Rules:
         system=system,
         messages=[{"role": "user", "content": f"Earlier steps:\n{history}\n\nNew input:\n$ {user_input}"}],
         output_format=SimulatedOutput,
+        betas=["server-side-fallback-2026-07-01"],
+        extra_body={"fallbacks": "default"},
+    )
+    if message.stop_reason == "refusal":
+        raise ClaudeRefusal()
+    return message.parsed_output
+
+
+class DiagnosisJudgement(BaseModel):
+    correct: bool
+    consequence: str
+
+
+def judge_diagnosis(hidden: dict, steps: list, diagnosis: str) -> DiagnosisJudgement:
+    prompt = f"""A trainee in a troubleshooting exercise states their diagnosis. Judge it against the hidden root cause.
+
+Hidden root cause: {hidden['cause']}
+Facts: {'; '.join(hidden['facts'])}
+
+Investigation so far:
+{format_steps(steps) or '(no commands run)'}
+
+Trainee's diagnosis: {diagnosis}
+
+- correct: true only if the diagnosis names the culprit (the process, job or component) and the
+  mechanism (how it causes the symptom). Restating the symptom ("the disk is slow") or naming the
+  resource without the culprit is not enough. Wording does not matter, substance does.
+- consequence: if not correct, 2-3 sentences in square brackets describing what happens when the
+  trainee acts on their diagnosis: their fix is applied, the symptom comes back (say when), and the
+  trading impact. Do not name or hint at the real cause. If correct, an empty string."""
+
+    message = client.beta.messages.parse(
+        model=INVESTIGATION_MODEL,
+        max_tokens=16000,
+        output_config={"effort": "medium"},
+        messages=[{"role": "user", "content": prompt}],
+        output_format=DiagnosisJudgement,
+        betas=["server-side-fallback-2026-07-01"],
+        extra_body={"fallbacks": "default"},
+    )
+    if message.stop_reason == "refusal":
+        raise ClaudeRefusal()
+    return message.parsed_output
+
+
+class InvestigationEvaluation(BaseModel):
+    feedback: str
+    score: int
+    interview_answer: str
+    pi_commando: str
+    grammar_score: int
+    vocabulary_score: int
+    structure_score: int
+    fluency_score: int
+    english_tip: str
+
+
+def evaluate_investigation(investigation: dict, solved: bool) -> InvestigationEvaluation:
+    hidden = investigation["hidden"]
+    commands = sum(1 for s in investigation["steps"] if s.get("kind") != "diagnosis")
+    level_instruction = LEVEL_CONTEXT.get(investigation["level"], LEVEL_CONTEXT["basis"])
+    outcome = (
+        f"Solved after {investigation['wrong_diagnoses']} wrong diagnosis(es)." if solved
+        else "Not solved: two wrong diagnoses, the cause was revealed."
+    )
+
+    prompt = f"""You are a patient TRE mentor at a trading firm. Evaluate a hands-on troubleshooting exercise.
+
+Level: {investigation['level'].upper()} — {level_instruction}
+Symptom given: {investigation['symptom']}
+Hidden root cause: {hidden['cause']}
+Fix: {hidden['fix']}
+Fastest path an experienced engineer would take: {' | '.join(hidden['fastest_path'])}
+
+The trainee's investigation ({commands} commands, {investigation['risky_actions']} risky actions):
+{format_steps(investigation['steps'])}
+
+Outcome: {outcome}
+
+Score 0-10, weighing:
+- Cause: found or not, and at which attempt.
+- Efficiency: commands used compared with the fastest path ({len(hidden['fastest_path'])} steps).
+- Order: broad, cheap checks first (the 60-second checklist), then narrowing down.
+- Interpretation: did each next command follow from what the previous output showed?
+- Trading impact: risky actions lower the score; a diagnosis that includes mitigation raises it.
+
+Fields:
+- feedback: what went well, where the trainee lost time or went off track, and the fastest path
+  with what each command would have shown. Maximum 150 words.
+- interview_answer: how to tell this investigation in an IMC interview, 2-3 sentences.
+- pi_commando: one or two commands to reproduce this situation on a Raspberry Pi, with a short explanation.
+- grammar_score, vocabulary_score, structure_score, fluency_score: 0-10, judged on the trainee's
+  diagnoses (the English text they wrote, not the commands).
+- english_tip: one concrete tip to improve their English, maximum 20 words."""
+
+    message = client.beta.messages.parse(
+        model=INVESTIGATION_MODEL,
+        max_tokens=16000,
+        output_config={"effort": "medium"},
+        messages=[{"role": "user", "content": prompt}],
+        output_format=InvestigationEvaluation,
         betas=["server-side-fallback-2026-07-01"],
         extra_body={"fallbacks": "default"},
     )

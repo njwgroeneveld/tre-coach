@@ -26,6 +26,7 @@ class QuestionResponse(BaseModel):
 
 class FeedbackResponse(BaseModel):
     feedback: str
+    score: int | None = None
     interview_answer: str
     pi_commando: str
     session_id: str
@@ -70,3 +71,20 @@ class InvestigationStepRequest(BaseModel):
 class InvestigationStepResponse(BaseModel):
     output: str
     steps_left: int
+
+class InvestigationDiagnoseRequest(BaseModel):
+    investigation_id: str
+    diagnosis: str
+
+class InvestigationReveal(BaseModel):
+    cause: str
+    fix: str
+    fastest_path: list[str]
+
+class InvestigationDiagnoseResponse(BaseModel):
+    correct: bool
+    status: str                                 # open, solved or revealed
+    attempts_left: int
+    consequence: str | None = None              # only after a wrong diagnosis that leaves the case open
+    reveal: InvestigationReveal | None = None   # once the investigation is closed
+    evaluation: FeedbackResponse | None = None  # once the investigation is closed

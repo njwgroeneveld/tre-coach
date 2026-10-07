@@ -43,6 +43,10 @@ def add_investigation_step(investigation_id: str, steps: list, risky_actions: in
     }).eq("id", investigation_id).execute()
 
 
+def update_investigation(investigation_id: str, fields: dict):
+    client.table("investigations").update(fields).eq("id", investigation_id).execute()
+
+
 def session_belongs_to(session_id: str, user_id: str) -> bool:
     result = client.table("sessions").select("id").eq(
         "id", session_id
