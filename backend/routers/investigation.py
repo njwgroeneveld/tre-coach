@@ -4,13 +4,15 @@ from models import (
     FeedbackResponse,
     InvestigationDiagnoseRequest,
     InvestigationDiagnoseResponse,
+    InvestigationHintRequest,
+    InvestigationHintResponse,
     InvestigationReveal,
     InvestigationStartRequest,
     InvestigationStartResponse,
     InvestigationStepRequest,
     InvestigationStepResponse,
 )
-from services.claude_service import evaluate_investigation, format_steps, generate_investigation, judge_diagnosis, simulate_step
+from services.claude_service import evaluate_investigation, format_steps, generate_investigation, generate_investigation_hint, judge_diagnosis, simulate_step
 from services.causes import pick_cause
 from services.supabase_service import add_investigation_step, create_investigation, get_investigation, recent_cause_ids, save_answer, update_investigation
 
@@ -18,6 +20,7 @@ router = APIRouter()
 
 MAX_STEPS = 10
 MAX_WRONG_DIAGNOSES = 2
+MAX_HINTS = 3
 
 
 def load_own_investigation(investigation_id: str, user_id: str) -> dict:
@@ -35,8 +38,12 @@ def require_open(investigation: dict):
 
 
 def count_commands(steps: list) -> int:
-    # Diagnoses are stored in steps too, but only commands count toward the limit.
-    return sum(1 for s in steps if s.get("kind") != "diagnosis")
+    # Diagnoses and hints are stored in steps too, but only commands count toward the limit.
+    return sum(1 for s in steps if s.get("kind", "command") == "command")
+
+
+def count_hints(steps: list) -> int:
+    return sum(1 for s in steps if s.get("kind") == "hint")
 
 
 def start_investigation(session_id: str, subtopic: str, level: str, user_id: str) -> tuple[str, str]:
@@ -148,3 +155,19 @@ def diagnose(body: InvestigationDiagnoseRequest, user_id: str = Depends(current_
             english_tips=result.english_tip,
         ),
     )
+
+
+@router.post("/hint")
+def hint(body: InvestigationHintRequest, user_id: str = Depends(current_user)) -> InvestigationHintResponse:
+    investigation = load_own_investigation(body.investigation_id, user_id)
+    require_open(investigation)
+    steps = investigation["steps"]
+    # The server counts the hints, so the browser cannot skip ahead to hint 3.
+    hint_number = count_hints(steps) + 1
+    if hint_number > MAX_HINTS:
+        raise HTTPException(status_code=409, detail="No hints left")
+
+    text = generate_investigation_hint(investigation["hidden"], steps, hint_number)
+    steps = steps + [{"kind": "hint", "input": str(hint_number), "output": text}]
+    update_investigation(body.investigation_id, {"steps": steps})
+    return InvestigationHintResponse(hint=text, hint_number=hint_number)

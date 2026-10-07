@@ -89,3 +89,10 @@ class InvestigationDiagnoseResponse(BaseModel):
     consequence: str | None = None              # only after a wrong diagnosis that leaves the case open
     reveal: InvestigationReveal | None = None   # once the investigation is closed
     evaluation: FeedbackResponse | None = None  # once the investigation is closed
+
+class InvestigationHintRequest(BaseModel):
+    investigation_id: str
+
+class InvestigationHintResponse(BaseModel):
+    hint: str
+    hint_number: int

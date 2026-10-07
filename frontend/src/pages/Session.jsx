@@ -173,6 +173,24 @@ export default function Session() {
     setLoading(false)
   }
 
+  async function handleInvestigationHint() {
+    if (hintsUsed >= 3 || loading) return
+    setLoading(true)
+    setLoadingText('Thinking of a hint…')
+
+    const res = await postJSON('/investigation/hint', { investigation_id: investigation.id })
+    if (!res.ok) {
+      addSystem(`⚠️ ${await errorText(res)}`)
+      setLoading(false)
+      return
+    }
+    const data = await res.json()
+    // The server counts hints; follow its number rather than our own.
+    setHintsUsed(data.hint_number)
+    setMessages(prev => [...prev, { role: 'hint', text: `💡 Hint ${data.hint_number}/3: ${data.hint}` }])
+    setLoading(false)
+  }
+
   async function handleHint() {
     if (hintsUsed >= 3 || loading) return
     const nextHint = hintsUsed + 1
@@ -407,15 +425,26 @@ export default function Session() {
             <p className="text-gray-500 text-xs">
               {diagnoseMode ? '🩺 State the root cause and your fix' : `$ ${investigation.stepsLeft} commands left`}
             </p>
-            {investigation.stepsLeft > 0 && (
-              <button
-                onClick={() => setDiagnoseMode(!diagnoseMode)}
-                disabled={loading}
-                className="text-purple-400 hover:text-purple-300 text-sm font-medium disabled:opacity-50"
-              >
-                {diagnoseMode ? '← Back to commands' : '🩺 Diagnose'}
-              </button>
-            )}
+            <div className="flex items-center gap-4">
+              {hintsUsed < 3 && (
+                <button
+                  onClick={handleInvestigationHint}
+                  disabled={loading}
+                  className="text-yellow-400 hover:text-yellow-300 text-sm disabled:opacity-50"
+                >
+                  💡 Hint {hintsUsed + 1}/3
+                </button>
+              )}
+              {investigation.stepsLeft > 0 && (
+                <button
+                  onClick={() => setDiagnoseMode(!diagnoseMode)}
+                  disabled={loading}
+                  className="text-purple-400 hover:text-purple-300 text-sm font-medium disabled:opacity-50"
+                >
+                  {diagnoseMode ? '← Back to commands' : '🩺 Diagnose'}
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           showHintBtn && hintsUsed < 3 && (

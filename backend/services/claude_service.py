@@ -1,5 +1,6 @@
 import os
 import random
+import re
 import anthropic
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -351,11 +352,13 @@ Fields:
 
 
 def format_steps(steps: list) -> str:
-    """The investigation so far as a transcript; a wrong diagnosis and its consequence are part of it."""
+    """The investigation so far as a transcript; wrong diagnoses, their consequences and hints are part of it."""
     lines = []
     for s in steps:
         if s.get("kind") == "diagnosis":
             lines.append(f"[diagnosis] {s['input']}\n{s['output']}")
+        elif s.get("kind") == "hint":
+            lines.append(f"[hint {s['input']}] {s['output']}")
         else:
             lines.append(f"$ {s['input']}\n{s['output']}")
     return "\n\n".join(lines)
@@ -485,6 +488,7 @@ Score 0-10, weighing:
 - Order: broad, cheap checks first (the 60-second checklist), then narrowing down.
 - Interpretation: did each next command follow from what the previous output showed?
 - Trading impact: risky actions lower the score; a diagnosis that includes mitigation raises it.
+- Hints: each hint used ([hint n] in the transcript) lowers the score a little.
 
 Fields:
 - feedback: what went well, where the trainee lost time or went off track, and the fastest path
@@ -507,3 +511,41 @@ Fields:
     if message.stop_reason == "refusal":
         raise ClaudeRefusal()
     return message.parsed_output
+
+
+INVESTIGATION_HINTS = {
+    1: "Point to the part of the system the trainee has not looked at yet (CPU, memory, disk, network, "
+       "a specific process). One sentence, no command.",
+    2: "Name one concrete command to run next and why. Maximum 2 sentences.",
+    3: "Say which field or value in that command's output to look at, and what would be abnormal. "
+       "Maximum 3 sentences.",
+}
+
+
+def generate_investigation_hint(hidden: dict, steps: list, hint_number: int) -> str:
+    prompt = f"""You are a mentor watching a trainee troubleshoot a live incident.
+
+Hidden root cause (never reveal it, never name the culprit process): {hidden['cause']}
+Facts: {'; '.join(hidden['facts'])}
+Fastest path: {' | '.join(hidden['fastest_path'])}
+
+What the trainee has done so far:
+{format_steps(steps) or '(nothing yet)'}
+
+Give hint {hint_number}/3: {INVESTIGATION_HINTS[hint_number]}
+Build on what they have already seen; do not repeat a command they ran. Write in English.
+Write only the hint itself, without a "Hint n/3" label."""
+
+    message = client.beta.messages.create(
+        model=INVESTIGATION_MODEL,
+        max_tokens=8000,
+        output_config={"effort": "low"},
+        messages=[{"role": "user", "content": prompt}],
+        betas=["server-side-fallback-2026-07-01"],
+        extra_body={"fallbacks": "default"},
+    )
+    if message.stop_reason == "refusal":
+        raise ClaudeRefusal()
+    text = "".join(b.text for b in message.content if b.type == "text").strip()
+    # The UI adds the "Hint n/3" label itself; drop it if the model wrote one anyway.
+    return re.sub(r"^[\s*_]*hint\s*\d\s*/\s*3[\s*_:.\-–]*", "", text, flags=re.IGNORECASE)
