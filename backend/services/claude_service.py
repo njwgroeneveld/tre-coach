@@ -103,7 +103,7 @@ LEVEL_CONTEXT = {
         "No edge cases. Suitable for someone with some Linux/K8s experience."
     ),
     "gemiddeld": (
-        "Intermediate level — what IMC expects at 2+ years of experience. "
+        "Intermediate level — what a trading firm expects from an engineer with 2+ years of experience. "
         "Ask practical questions with multiple possible root causes. "
         "Link to trading impact. The candidate must reason, not just list commands."
     ),
@@ -221,7 +221,7 @@ Give your evaluation in this exact format:
 
 FEEDBACK: <what was good + what the trainee missed + correct approach, maximum 150 words>
 SCORE: <integer 0-10>
-INTERVIEW: <how you would phrase this in an IMC interview, 2-3 sentences>
+INTERVIEW: <how you would phrase this in a trading-firm interview, 2-3 sentences>
 PI_COMMANDO: <one or two concrete Linux/kubectl commands the trainee can run on a Raspberry Pi to simulate this, with a short explanation>
 GRAMMAR_SCORE: <integer 0-10, evaluate verb tenses, sentence construction, subject-verb agreement>
 VOCABULARY_SCORE: <integer 0-10, evaluate technical term accuracy, word variety, appropriate register>
@@ -489,7 +489,7 @@ Score 0-10, weighing:
 Fields:
 - feedback: what went well, where the trainee lost time or went off track, and the fastest path
   with what each command would have shown. Maximum 150 words.
-- interview_answer: how to tell this investigation in an IMC interview, 2-3 sentences.
+- interview_answer: how to tell this investigation in a trading-firm interview, 2-3 sentences.
 - pi_commando: one or two commands to reproduce this situation on a Raspberry Pi, with a short explanation.
 - grammar_score, vocabulary_score, structure_score, fluency_score: 0-10, judged on the trainee's
   diagnoses (the English text they wrote, not the commands).

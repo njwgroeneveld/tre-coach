@@ -16,7 +16,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-950">
       <form onSubmit={handleLogin} className="bg-gray-900 p-8 rounded-xl w-full max-w-sm space-y-4">
         <h1 className="text-white text-2xl font-bold">TRE Coach</h1>
-        <p className="text-gray-400 text-sm">Bereid je voor op IMC Trading</p>
+        <p className="text-gray-400 text-sm">Oefen troubleshooting voor tradingsystemen</p>
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <input
           type="email"

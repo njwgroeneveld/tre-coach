@@ -54,7 +54,7 @@ export default function Dashboard() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-white text-2xl font-bold">TRE Coach</h1>
-          <p className="text-gray-400 text-sm">IMC Trading preparation</p>
+          <p className="text-gray-400 text-sm">Troubleshooting practice for trading systems</p>
         </div>
         <div className="flex gap-4 items-center">
           <button onClick={() => navigate('/coach')} className="text-blue-400 hover:text-blue-300 text-sm">
