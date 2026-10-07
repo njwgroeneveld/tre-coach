@@ -6,29 +6,25 @@ load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-# The request settings in _ask (effort, fallback) are for Sonnet 5.5; check them when changing model.
-MODEL = "claude-sonnet-5-5"
+# Haiku 4.5: no thinking, no effort setting. To move to Sonnet 5.5, see commit d4d3e37 — it adds
+# effort (low, medium for grading) and server-side fallback to _ask.
+MODEL = "claude-haiku-4-5"
 
 
 class ClaudeRefusal(Exception):
     """Claude declined the request (stop_reason "refusal")."""
 
 
-def _ask(messages: list, max_tokens: int, effort: str = "low") -> str:
-    # Thinking is on by default and counts toward max_tokens, so the limits leave room for it;
-    # the prompts themselves cap the length of the answer.
-    message = client.beta.messages.create(
+def _ask(messages: list, max_tokens: int) -> str:
+    # The prompts themselves cap the length of the answer; max_tokens is only a ceiling.
+    message = client.messages.create(
         model=MODEL,
         max_tokens=max_tokens,
-        output_config={"effort": effort},
         messages=messages,
-        # On a policy decline the API retries on a fallback model within the same call.
-        betas=["server-side-fallback-2026-07-01"],
-        extra_body={"fallbacks": "default"},
     )
     if message.stop_reason == "refusal":
         raise ClaudeRefusal()
-    # Read by block type: the response can start with a thinking block.
+    # Read by block type rather than content[0], so a thinking model works too.
     return "".join(b.text for b in message.content if b.type == "text").strip()
 
 SUBTOPICS = {
@@ -227,7 +223,7 @@ STRUCTURE_SCORE: <integer 0-10, evaluate logical flow, clear reasoning steps, an
 FLUENCY_SCORE: <integer 0-10, evaluate sentence variety, filler avoidance, use of linking words like therefore/however/as a result>
 ENGLISH_TIP: <one concrete actionable tip to improve English, maximum 20 words, e.g. "Use 'therefore' instead of 'so' to sound more professional">"""
 
-    response = _ask([{"role": "user", "content": prompt}], max_tokens=8000, effort="medium")
+    response = _ask([{"role": "user", "content": prompt}], max_tokens=8000)
     result = {
         "feedback": "",
         "score": 5,
