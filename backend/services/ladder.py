@@ -139,37 +139,43 @@ def _uptime_situation(rng: random.Random, kind: str) -> dict:
     cpus = rng.choice([4, 8, 16, 32])
     j = lambda: rng.uniform(0.9, 1.1)  # small jitter between the three averages
 
+    # key_points: the conclusion itself (required). bonus: the evidence and the next step (tips).
     if kind == "normal":
         base = rng.uniform(0.1, 0.6) * cpus
         loads = (base * j(), base * j(), base * j())
-        key_points = ["the load is below the CPU count and steady",
-                      "load is not a problem here; continue the checklist (dmesg, vmstat)"]
+        key_points = ["the load is fine: healthy, not a problem"]
+        bonus = ["evidence: it is below the CPU count and steady",
+                 "next: continue the checklist (dmesg | tail, vmstat 1)"]
     elif kind == "overloaded":
         base = rng.uniform(1.6, 3.0) * cpus
         loads = (base * j(), base * j(), base * rng.uniform(0.85, 1.0))
-        key_points = ["the load is well above the CPU count, and has been for at least 15 minutes",
-                      "uptime cannot tell whether it is CPU or I/O",
-                      "next: vmstat 1, r against b"]
+        key_points = ["the load is too high: well above the CPU count"]
+        bonus = ["it has been like this for at least 15 minutes (all three values are high)",
+                 "uptime cannot tell whether it is CPU or I/O",
+                 "next: vmstat 1, r against b"]
     elif kind == "rising":
         l15 = rng.uniform(0.2, 0.5) * cpus
         l1 = rng.uniform(1.5, 3.0) * cpus
         loads = (l1, (l1 + l15) / 2 * j(), l15)
-        key_points = ["the load is rising fast: 1-minute far above 15-minute",
-                      "the problem started in the last minutes and the load is now above the CPU count",
-                      "CPU or I/O is still unknown: next vmstat 1"]
+        key_points = ["the load is rising, or the problem started recently"]
+        bonus = ["evidence: the 1-minute value is far above the 15-minute value",
+                 "it is now above the CPU count",
+                 "CPU or I/O is still unknown: next vmstat 1"]
     elif kind == "too_late":
         l15 = rng.uniform(1.2, 2.5) * cpus
         l1 = rng.uniform(0.1, 0.4) * cpus
         loads = (l1, (l1 + l15) / 2 * j(), l15)
-        key_points = ["the load is falling: 1-minute far below 15-minute",
-                      "something heavy happened in the last 15 minutes and is now mostly over; "
-                      "you may have logged in too late",
-                      "look for traces of it, for example dmesg | tail"]
+        key_points = ["the load is falling: the problem was earlier and is mostly over"]
+        bonus = ["evidence: the 1-minute value is far below the 15-minute value",
+                 "you may have logged in too late",
+                 "next: look for traces, for example dmesg | tail"]
     else:  # rebooted
         base = rng.uniform(0.2, 0.8) * cpus
         loads = (base * j(), base * 0.6 * j(), base * 0.25 * j())
-        key_points = ["the host was booted only minutes ago: it rebooted or crashed",
-                      "the load says little yet; find out why it rebooted (dmesg, system logs)"]
+        key_points = ["the host rebooted or crashed a few minutes ago"]
+        bonus = ["evidence: 'up' shows only minutes",
+                 "the load says little yet",
+                 "next: find out why it rebooted (dmesg, system logs)"]
 
     boot_minutes = rng.randint(2, 9) if kind == "rebooted" else None
     output = _uptime_line(rng, *loads, boot_minutes=boot_minutes)
@@ -178,6 +184,7 @@ def _uptime_situation(rng: random.Random, kind: str) -> dict:
         "prompt": f"The host has {cpus} CPUs. You run `uptime`:",
         "output": output,
         "key_points": key_points,
+        "bonus": bonus,
     }
 
 
