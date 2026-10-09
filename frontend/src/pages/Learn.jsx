@@ -88,6 +88,7 @@ function Lesson({ lesson, onProgress, onBack }) {
   }, [lesson.lesson])
 
   async function newDrill(k) {
+    const previous = k === kind ? drill?.drill_id : null
     setKind(k)
     setDrill(null)
     setResult(null)
@@ -96,7 +97,7 @@ function Lesson({ lesson, onProgress, onBack }) {
     setShowCard(false)
     setLoading(true)
     try {
-      setDrill(await api('/ladder/drill', { lesson: lesson.lesson, kind: k }))
+      setDrill(await api('/ladder/drill', { lesson: lesson.lesson, kind: k, previous_drill_id: previous }))
     } catch (e) {
       setError(e.message)
     }

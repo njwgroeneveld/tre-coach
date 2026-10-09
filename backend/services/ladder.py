@@ -60,6 +60,24 @@ UPTIME_PURPOSE_QUESTIONS = [
      "key_points": ["a first limitation, for example: whether the load is CPU or I/O, which process causes it, "
                     "which CPU or disk is busy, whether there are errors, what the actual cause is",
                     "a second, different limitation from that same kind of list"]},
+    {"question": "You have just logged in to a slow server. Why is uptime a good first command?",
+     "key_points": ["it gives a quick overview of how much load there is and whether it is rising or falling"],
+     "bonus": ["it also shows whether the host rebooted recently"]},
+    {"question": "uptime gives three load numbers instead of one. Why is that useful?",
+     "key_points": ["comparing them shows the trend: whether the load is rising, falling or steady"]},
+    {"question": "After uptime, which command do you run to find out whether the load is CPU or I/O?",
+     "key_points": ["vmstat 1"],
+     "bonus": ["compare its r column (waiting for CPU) with its b column (blocked in I/O)"]},
+    {"question": "Is uptime enough to conclude that a server is healthy? Why or why not?",
+     "key_points": ["no",
+                    "it only shows the overall load; problems such as errors, one busy CPU, a slow disk or "
+                    "network trouble do not show in it"]},
+    {"question": "What does the load average tell you that a CPU-usage percentage does not?",
+     "key_points": ["the load counts tasks waiting to run, not only how busy the CPUs are"],
+     "bonus": ["it also counts tasks blocked in I/O, which use no CPU at all"]},
+    {"question": "In one sentence: what is the 'load' that uptime reports?",
+     "key_points": ["the number of tasks running or wanting to run"],
+     "bonus": ["on Linux it includes tasks blocked in uninterruptible I/O"]},
 ]
 
 UPTIME_COLUMN_QUESTIONS = [
@@ -82,6 +100,20 @@ UPTIME_COLUMN_QUESTIONS = [
                  "bottleneck? What do you run next?",
      "key_points": ["no: the load also counts tasks blocked in I/O",
                     "run vmstat 1 and compare r (waiting for CPU) with b (blocked in I/O)"]},
+    {"question": "What does 'up 63 days,  2:40' mean in the uptime output?",
+     "key_points": ["the host has been running for 63 days, 2 hours and 40 minutes since its last boot"]},
+    {"question": "The load average is 4.0 on a host with 4 CPUs. What does that mean?",
+     "key_points": ["there is about as much work as there are CPUs: they are fully used, with little or no queue"]},
+    {"question": "The load average is 0.5 on a host with 8 CPUs. Is the host busy?",
+     "key_points": ["no, it is mostly idle: the load is far below the CPU count"]},
+    {"question": "Why can the load average be high while the CPUs are mostly idle?",
+     "key_points": ["tasks blocked in I/O (state D) count in the load but use no CPU"],
+     "bonus": ["for example many tasks waiting on a slow or saturated disk"]},
+    {"question": "The load averages are 8.0, 8.1, 7.9 on a host with 8 CPUs. What do they tell you?",
+     "key_points": ["the load has been steady for 15 minutes", "it is at about the CPU count: fully used"]},
+    {"question": "How do you find the number of CPUs to compare the load with?",
+     "key_points": ["nproc"],
+     "bonus": ["or lscpu, or counting the processors in /proc/cpuinfo"]},
 ]
 
 
@@ -100,9 +132,11 @@ def _uptime_line(rng: random.Random, l1: float, l5: float, l15: float, boot_minu
     return f" {clock} {up},  {users} {user_word},  load average: {_fmt_load(l1)}, {_fmt_load(l5)}, {_fmt_load(l15)}"
 
 
-def _uptime_situation(rng: random.Random) -> dict:
+UPTIME_SITUATIONS = ["normal", "overloaded", "rising", "too_late", "rebooted"]
+
+
+def _uptime_situation(rng: random.Random, kind: str) -> dict:
     cpus = rng.choice([4, 8, 16, 32])
-    kind = rng.choice(["normal", "overloaded", "rising", "too_late", "rebooted"])
     j = lambda: rng.uniform(0.9, 1.1)  # small jitter between the three averages
 
     if kind == "normal":
@@ -153,6 +187,7 @@ LESSONS = {
         "card": UPTIME_CARD,
         "purpose_questions": UPTIME_PURPOSE_QUESTIONS,
         "column_questions": UPTIME_COLUMN_QUESTIONS,
+        "situations": UPTIME_SITUATIONS,
         "situation": _uptime_situation,
     },
 }
@@ -162,32 +197,60 @@ LESSON_ORDER = ["uptime"]
 
 # --- drills ---------------------------------------------------------------------------------------
 
-def new_drill_id(lesson: str, kind: str) -> str:
-    return f"{lesson}.{kind}.{random.randrange(1, 2**31)}"
+def _questions(lesson: str, kind: str) -> list[dict]:
+    return LESSONS[lesson]["purpose_questions" if kind == "purpose" else "column_questions"]
+
+
+def new_drill_id(lesson: str, kind: str, asked: list[str], previous_drill_id: str | None = None) -> str:
+    """Pick the next drill without repeats.
+
+    Ids: '<lesson>.<purpose|columns>.<question index>' and '<lesson>.read.<situation>.<seed>'.
+    asked: question texts the trainee already answered for this part, newest first.
+    """
+    if kind in ("purpose", "columns"):
+        questions = _questions(lesson, kind)
+        # The drill just shown counts as asked, even if it was not answered.
+        if previous_drill_id and previous_drill_id.startswith(f"{lesson}.{kind}."):
+            try:
+                asked = [questions[int(previous_drill_id.split(".")[2])]["question"]] + asked
+            except (ValueError, IndexError):
+                pass
+        never = [i for i, q in enumerate(questions) if q["question"] not in asked]
+        if never:
+            index = random.choice(never)
+        else:
+            # All seen: take the one seen longest ago.
+            last_seen = {q: pos for pos, q in reversed(list(enumerate(asked)))}
+            index = max(range(len(questions)), key=lambda i: last_seen.get(questions[i]["question"], -1))
+        return f"{lesson}.{kind}.{index}"
+
+    # Read drills get new numbers every time; only avoid the same situation twice in a row.
+    situations = list(LESSONS[lesson]["situations"])
+    previous = previous_drill_id.split(".")[2] if previous_drill_id and previous_drill_id.count(".") == 3 else None
+    choices = [s for s in situations if s != previous] or situations
+    return f"{lesson}.read.{random.choice(choices)}.{random.randrange(1, 2**31)}"
 
 
 def build_drill(drill_id: str) -> dict:
-    """Rebuild a drill from its id: '<lesson>.<purpose|columns|read>.<seed>'. Raises ValueError on a bad id."""
+    """Rebuild a drill from its id (see new_drill_id). Raises ValueError on a bad id."""
+    parts = drill_id.split(".")
     try:
-        lesson, kind, seed = drill_id.split(".")
+        lesson, kind = parts[0], parts[1]
         lesson_data = LESSONS[lesson]
-        rng = random.Random(int(seed))
-    except (ValueError, KeyError) as e:
+        # A drill is shown as: context, then output (if any), then the question.
+        if kind in ("purpose", "columns") and len(parts) == 3:
+            q = _questions(lesson, kind)[int(parts[2])]
+            return {"drill_id": drill_id, "lesson": lesson, "kind": kind,
+                    "context": None, "output": None, "question": q["question"],
+                    "key_points": q["key_points"], "bonus": q.get("bonus", [])}
+        if kind == "read" and len(parts) == 4 and parts[2] in lesson_data["situations"]:
+            s = lesson_data["situation"](random.Random(int(parts[3])), parts[2])
+            return {"drill_id": drill_id, "lesson": lesson, "kind": kind,
+                    "context": s["prompt"], "output": s["output"], "question": "What do you conclude?",
+                    "key_points": s["key_points"], "bonus": s.get("bonus", []), "situation": s["situation"]}
+    except (ValueError, KeyError, IndexError) as e:
         raise ValueError(f"Unknown drill: {drill_id}") from e
-
-    # A drill is shown as: context, then output (if any), then the question.
-    if kind in ("purpose", "columns"):
-        questions = lesson_data["purpose_questions" if kind == "purpose" else "column_questions"]
-        q = rng.choice(questions)
-        return {"drill_id": drill_id, "lesson": lesson, "kind": kind,
-                "context": None, "output": None, "question": q["question"],
-                "key_points": q["key_points"], "bonus": q.get("bonus", [])}
-    if kind == "read":
-        s = lesson_data["situation"](rng)
-        return {"drill_id": drill_id, "lesson": lesson, "kind": kind,
-                "context": s["prompt"], "output": s["output"], "question": "What do you conclude?",
-                "key_points": s["key_points"], "bonus": s.get("bonus", []), "situation": s["situation"]}
-    raise ValueError(f"Unknown drill kind: {kind}")
+    raise ValueError(f"Unknown drill: {drill_id}")
 
 
 # --- progress -------------------------------------------------------------------------------------

@@ -5,7 +5,7 @@ from services.claude_service import grade_drill
 from services.ladder import (
     LESSONS, PARTS, VERDICT_SCORES, all_drill_subtopics, build_drill, drill_subtopic, ladder_progress, new_drill_id,
 )
-from services.supabase_service import get_ladder_session, recent_drill_scores, save_answer
+from services.supabase_service import get_ladder_session, recent_drill_questions, recent_drill_scores, save_answer
 
 router = APIRouter()
 
@@ -33,7 +33,8 @@ def drill(body: DrillRequest, user_id: str = Depends(current_user)) -> DrillResp
     progress = next(p for p in progress_for(user_id) if p["lesson"] == body.lesson)
     if not progress[body.kind]["unlocked"]:
         raise HTTPException(status_code=403, detail="Not unlocked yet")
-    d = build_drill(new_drill_id(body.lesson, body.kind))
+    asked = recent_drill_questions(user_id, drill_subtopic(body.lesson, body.kind))
+    d = build_drill(new_drill_id(body.lesson, body.kind, asked, body.previous_drill_id))
     # key_points and the situation stay on the server: they are the answer.
     return DrillResponse(drill_id=d["drill_id"], lesson=d["lesson"], kind=d["kind"],
                          context=d["context"], output=d["output"], question=d["question"])

@@ -100,6 +100,7 @@ class InvestigationHintResponse(BaseModel):
 class DrillRequest(BaseModel):
     lesson: str
     kind: str  # purpose, columns or read
+    previous_drill_id: str | None = None  # so the next drill differs from the last one
 
 class DrillResponse(BaseModel):
     drill_id: str

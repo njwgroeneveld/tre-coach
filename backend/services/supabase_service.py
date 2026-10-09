@@ -68,6 +68,18 @@ def get_ladder_session(user_id: str) -> str:
     return create_session(user_id, "ladder", "ladder", "basis")
 
 
+def recent_drill_questions(user_id: str, subtopic: str, n: int = 100) -> list[str]:
+    """Question texts the user answered for one drill part, newest first."""
+    sessions = client.table("sessions").select("id").eq("user_id", user_id).eq("topic", "ladder").execute()
+    session_ids = [row["id"] for row in sessions.data]
+    if not session_ids:
+        return []
+    rows = client.table("answers").select("question").in_("session_id", session_ids).eq(
+        "subtopic", subtopic
+    ).order("created_at", desc=True).limit(n).execute().data
+    return [row["question"] for row in rows]
+
+
 def recent_drill_scores(user_id: str, subtopics: list[str], n: int = 5) -> dict[str, list[int]]:
     """The latest n scores per drill subtopic, newest first."""
     sessions = client.table("sessions").select("id").eq("user_id", user_id).eq("topic", "ladder").execute()
