@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Session from './pages/Session'
 import Results from './pages/Results'
 import Coach from './pages/Coach'
+import Learn from './pages/Learn'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/session" element={session ? <Session /> : <Navigate to="/login" />} />
         <Route path="/results" element={session ? <Results /> : <Navigate to="/login" />} />
         <Route path="/coach" element={session ? <Coach /> : <Navigate to="/login" />} />
+        <Route path="/learn" element={session ? <Learn /> : <Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>
   )

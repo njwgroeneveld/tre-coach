@@ -57,6 +57,9 @@ export default function Dashboard() {
           <p className="text-gray-400 text-sm">Troubleshooting practice for trading systems</p>
         </div>
         <div className="flex gap-4 items-center">
+          <button onClick={() => navigate('/learn')} className="text-blue-400 hover:text-blue-300 text-sm">
+            📖 Learn
+          </button>
           <button onClick={() => navigate('/coach')} className="text-blue-400 hover:text-blue-300 text-sm">
             English Coach
           </button>
