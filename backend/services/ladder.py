@@ -10,6 +10,10 @@ Brendan Gregg's USE method.
 
 import random
 
+from services.lessons import (
+    dmesg, free, iostat, ip_link, mpstat, netstat_s, pidstat, sar_dev, sar_tcp, ss, top, vmstat,
+)
+
 # --- uptime ---------------------------------------------------------------------------------------
 
 UPTIME_CARD = {
@@ -191,6 +195,7 @@ def _uptime_situation(rng: random.Random, kind: str) -> dict:
 LESSONS = {
     "uptime": {
         "number": 1,
+        "command": "uptime",
         "card": UPTIME_CARD,
         "purpose_questions": UPTIME_PURPOSE_QUESTIONS,
         "column_questions": UPTIME_COLUMN_QUESTIONS,
@@ -199,7 +204,24 @@ LESSONS = {
     },
 }
 
-LESSON_ORDER = ["uptime"]
+# Lessons 2-10 follow the Netflix 60-second checklist; 11-13 add the network commands a trading host needs.
+_LESSON_MODULES = [
+    ("dmesg", dmesg), ("vmstat", vmstat), ("mpstat", mpstat), ("pidstat", pidstat), ("iostat", iostat),
+    ("free", free), ("sar_dev", sar_dev), ("sar_tcp", sar_tcp), ("top", top),
+    ("ip_link", ip_link), ("ss", ss), ("netstat_s", netstat_s),
+]
+for _number, (_lesson, _module) in enumerate(_LESSON_MODULES, start=2):
+    LESSONS[_lesson] = {
+        "number": _number,
+        "command": _module.COMMAND,
+        "card": _module.CARD,
+        "purpose_questions": _module.PURPOSE_QUESTIONS,
+        "column_questions": _module.COLUMN_QUESTIONS,
+        "situations": _module.SITUATIONS,
+        "situation": _module.situation,
+    }
+
+LESSON_ORDER = ["uptime"] + [lesson for lesson, _ in _LESSON_MODULES]
 
 
 # --- drills ---------------------------------------------------------------------------------------
@@ -297,6 +319,7 @@ def ladder_progress(scores: dict[str, list[int]]) -> list[dict]:
         lessons.append({
             "lesson": lesson,
             "number": LESSONS[lesson]["number"],
+            "command": LESSONS[lesson]["command"],
             "title": LESSONS[lesson]["card"]["title"],
             "unlocked": lesson_unlocked,
             "done": parts["read"]["mastered"],

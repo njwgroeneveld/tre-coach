@@ -252,7 +252,7 @@ export default function Learn() {
               }`}
             >
               <div className="flex justify-between items-center">
-                <span className="text-white font-medium">{l.number}. <span className="font-mono">{l.lesson}</span></span>
+                <span className="text-white font-medium">{l.number}. <span className="font-mono">{l.command}</span></span>
                 <span className="text-xs">{l.done ? '✅ done' : l.unlocked ? '' : '🔒'}</span>
               </div>
               <p className="text-gray-400 text-sm mt-1">{l.title}</p>
@@ -265,7 +265,7 @@ export default function Learn() {
               </div>
             </button>
           ))}
-          <p className="text-gray-600 text-xs">More lessons follow the Netflix 60-second checklist: dmesg, vmstat, mpstat, pidstat, iostat, free, sar and top.</p>
+          <p className="text-gray-600 text-xs">Lessons 1–10 follow the Netflix 60-second checklist; 11–13 add network commands for trading hosts.</p>
         </div>
       )}
 

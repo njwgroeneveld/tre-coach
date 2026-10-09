@@ -135,9 +135,10 @@ lock on what is not yet unlocked. A lesson shows its card, then drills one at a 
 
 ## Build order
 
-1. Drill engine, the `uptime` lesson (card, generator, grading) and a minimal Learn page.
-2. `vmstat 1`.
-3. The remaining Netflix commands, one per step.
+1. ✅ Drill engine, the `uptime` lesson (card, generator, grading) and a minimal Learn page.
+2. ✅ Lessons 2–10: the remaining Netflix commands (2026-10-09).
+3. ✅ Lessons 11–13: `ip -s link`, `ss -ti`, `netstat -s` (2026-10-09).
 4. Concepts, including TCP/UDP.
-5. Network lessons 11–13.
-6. Step 4 (USE per resource), then step 5 (first 60 seconds).
+5. Step 4 (USE per resource), then step 5 (first 60 seconds).
+
+Each lesson lives in `backend/services/lessons/<name>.py` (uptime stays in `services/ladder.py`).
