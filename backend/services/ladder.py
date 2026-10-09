@@ -46,17 +46,20 @@ UPTIME_CARD = {
             "Also dmesg | tail for anything the kernel logged.",
 }
 
+# key_points: what a correct answer must contain. bonus: worth mentioning, never required.
 UPTIME_PURPOSE_QUESTIONS = [
     {"question": "What does uptime show you, in one or two sentences?",
-     "key_points": ["how long the host has been running since its last boot",
-                    "the load averages: how many tasks want to run, over the last 1, 5 and 15 minutes"]},
+     "key_points": ["the load average (over 1, 5 and 15 minutes, or its trend)"],
+     "bonus": ["load means how much work wants to run",
+               "how long the host has been running since its last boot"]},
     {"question": "When do you run uptime, and why is it only a quick look?",
-     "key_points": ["it is the first command of the checklist, right after logging in",
-                    "it gives a high-level idea of demand and its trend",
-                    "it cannot tell what the load is made of, so other tools must follow"]},
+     "key_points": ["it shows only the overall load or its trend, not what causes it"],
+     "bonus": ["you run it first, right after logging in (the first command of the 60-second checklist)",
+               "other tools (vmstat) must follow to see whether it is CPU or I/O"]},
     {"question": "Name two things uptime cannot tell you.",
-     "key_points": ["whether the load comes from CPU or from I/O",
-                    "any one of: which process causes it, which disk or CPU is busy, whether there are errors"]},
+     "key_points": ["a first limitation, for example: whether the load is CPU or I/O, which process causes it, "
+                    "which CPU or disk is busy, whether there are errors, what the actual cause is",
+                    "a second, different limitation from that same kind of list"]},
 ]
 
 UPTIME_COLUMN_QUESTIONS = [
@@ -178,12 +181,12 @@ def build_drill(drill_id: str) -> dict:
         q = rng.choice(questions)
         return {"drill_id": drill_id, "lesson": lesson, "kind": kind,
                 "context": None, "output": None, "question": q["question"],
-                "key_points": q["key_points"]}
+                "key_points": q["key_points"], "bonus": q.get("bonus", [])}
     if kind == "read":
         s = lesson_data["situation"](rng)
         return {"drill_id": drill_id, "lesson": lesson, "kind": kind,
                 "context": s["prompt"], "output": s["output"], "question": "What do you conclude?",
-                "key_points": s["key_points"], "situation": s["situation"]}
+                "key_points": s["key_points"], "bonus": s.get("bonus", []), "situation": s["situation"]}
     raise ValueError(f"Unknown drill kind: {kind}")
 
 

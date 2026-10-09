@@ -187,10 +187,18 @@ function Lesson({ lesson, onProgress, onBack }) {
                 <p className="text-gray-100 text-sm whitespace-pre-wrap">{result.feedback}</p>
               </div>
               <div className="text-sm">
-                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">A complete answer covers</p>
+                <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">A correct answer covers</p>
                 <ul className="list-disc list-inside text-gray-200 space-y-1">
                   {result.key_points.map((p, i) => <li key={i}>{p}</li>)}
                 </ul>
+                {result.bonus_points?.length > 0 && (
+                  <>
+                    <p className="text-gray-400 text-xs uppercase tracking-wide mt-2 mb-1">Good to also mention</p>
+                    <ul className="list-disc list-inside text-gray-400 space-y-1">
+                      {result.bonus_points.map((p, i) => <li key={i}>{p}</li>)}
+                    </ul>
+                  </>
+                )}
               </div>
               {partNow?.mastered && (
                 <p className="text-green-400 text-sm">🎉 This part is mastered{kind !== 'read' ? ' — the next part is open.' : ' — lesson done!'}</p>

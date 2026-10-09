@@ -553,6 +553,14 @@ Write only the hint itself, without a "Hint n/3" label."""
 
 # --- Learning ladder ------------------------------------------------------------------------------
 
+class DrillCheck(BaseModel):
+    """What the model reports; the verdict is computed from it in code."""
+    required_present: list[bool]  # one per required point, in order
+    bonus_present: list[bool]     # one per bonus point, in order
+    incorrect_claim: bool
+    feedback: str
+
+
 class DrillGrade(BaseModel):
     verdict: str  # correct, partial or wrong
     feedback: str
@@ -560,33 +568,47 @@ class DrillGrade(BaseModel):
 
 def grade_drill(drill: dict, answer: str) -> DrillGrade:
     shown = "\n".join(part for part in [drill["context"], drill["output"], drill["question"]] if part)
-    key_points = "\n".join(f"- {p}" for p in drill["key_points"])
-    prompt = f"""You grade a short drill for a trainee learning to read Linux performance output.
+    key_points = "\n".join(f"{i}. {p}" for i, p in enumerate(drill["key_points"], 1))
+    bonus = "\n".join(f"- {p}" for p in drill.get("bonus", [])) or "(none)"
+    prompt = f"""You check a short drill answer from a trainee learning to read Linux performance output.
+The trainee is still learning English: judge meaning only, never wording, spelling or grammar.
 
 The drill as the trainee saw it:
 {shown}
 
-A correct answer contains these points, in any wording:
+Required points:
 {key_points}
+
+Bonus points (nice to mention, never required):
+{bonus}
 
 Trainee's answer: {answer}
 
-- verdict: "correct" if every point is there in substance and nothing said is wrong;
-  "partial" if some points are there, or a point is missing but nothing is wrong;
-  "wrong" if the main conclusion is missing or a claim is incorrect.
-  Judge substance, not grammar or wording.
-- feedback: 2-4 sentences in plain English. Say what was right, what was missing or wrong,
-  and give the correct reading in one sentence."""
+- required_present: one true/false per required point, in order. True when the answer says it in
+  substance, in any words or as a short note. Read the whole answer, every line, before deciding.
+- bonus_present: the same, one per bonus point (an empty list if there are none).
+- incorrect_claim: true only if the answer states something that is factually wrong.
+- feedback: at most 3 short sentences. Start with what was right. Then name a missing required
+  point or the wrong claim, if any; a bonus point may be given as a tip, never as a fault."""
 
     message = client.messages.parse(
         model=MODEL,
         max_tokens=2000,
         messages=[{"role": "user", "content": prompt}],
-        output_format=DrillGrade,
+        output_format=DrillCheck,
     )
     if message.stop_reason == "refusal":
         raise ClaudeRefusal()
-    grade = message.parsed_output
-    if grade.verdict not in ("correct", "partial", "wrong"):
-        grade.verdict = "partial"
-    return grade
+    check = message.parsed_output
+    present = check.required_present[:len(drill["key_points"])]
+    # The verdict follows fixed rules, so the same check always gives the same verdict.
+    if check.incorrect_claim:
+        verdict = "wrong"
+    elif present and all(present) and len(present) == len(drill["key_points"]):
+        verdict = "correct"
+    elif any(present) or any(check.bonus_present):
+        # On the way: a required point, or at least something true and relevant.
+        verdict = "partial"
+    else:
+        verdict = "wrong"
+    return DrillGrade(verdict=verdict, feedback=check.feedback)

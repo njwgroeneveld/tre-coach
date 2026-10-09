@@ -117,4 +117,5 @@ class DrillAnswerResponse(BaseModel):
     verdict: str            # correct, partial or wrong
     feedback: str
     key_points: list[str]   # what a correct answer contains, shown after answering
+    bonus_points: list[str] = []  # good to mention, not required
     progress: list[dict]

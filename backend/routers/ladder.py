@@ -67,4 +67,5 @@ def answer(body: DrillAnswerRequest, user_id: str = Depends(current_user)) -> Dr
         english_tips="",
     )
     return DrillAnswerResponse(verdict=grade.verdict, feedback=grade.feedback,
-                               key_points=d["key_points"], progress=progress_for(user_id))
+                               key_points=d["key_points"], bonus_points=d.get("bonus", []),
+                               progress=progress_for(user_id))
