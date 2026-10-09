@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from routers import session, dashboard, coach, investigation
+from routers import session, dashboard, coach, investigation, ladder
 from services.claude_service import ClaudeRefusal
 from dotenv import load_dotenv
 
@@ -25,6 +25,7 @@ app.include_router(session.router, prefix="/session")
 app.include_router(dashboard.router, prefix="/dashboard")
 app.include_router(coach.router, prefix="/coach")
 app.include_router(investigation.router, prefix="/investigation")
+app.include_router(ladder.router, prefix="/ladder")
 
 @app.get("/health")
 def health():

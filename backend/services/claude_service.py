@@ -549,3 +549,44 @@ Write only the hint itself, without a "Hint n/3" label."""
     text = "".join(b.text for b in message.content if b.type == "text").strip()
     # The UI adds the "Hint n/3" label itself; drop it if the model wrote one anyway.
     return re.sub(r"^[\s*_]*hint\s*\d\s*/\s*3[\s*_:.\-–]*", "", text, flags=re.IGNORECASE)
+
+
+# --- Learning ladder ------------------------------------------------------------------------------
+
+class DrillGrade(BaseModel):
+    verdict: str  # correct, partial or wrong
+    feedback: str
+
+
+def grade_drill(drill: dict, answer: str) -> DrillGrade:
+    shown = "\n".join(part for part in [drill["context"], drill["output"], drill["question"]] if part)
+    key_points = "\n".join(f"- {p}" for p in drill["key_points"])
+    prompt = f"""You grade a short drill for a trainee learning to read Linux performance output.
+
+The drill as the trainee saw it:
+{shown}
+
+A correct answer contains these points, in any wording:
+{key_points}
+
+Trainee's answer: {answer}
+
+- verdict: "correct" if every point is there in substance and nothing said is wrong;
+  "partial" if some points are there, or a point is missing but nothing is wrong;
+  "wrong" if the main conclusion is missing or a claim is incorrect.
+  Judge substance, not grammar or wording.
+- feedback: 2-4 sentences in plain English. Say what was right, what was missing or wrong,
+  and give the correct reading in one sentence."""
+
+    message = client.messages.parse(
+        model=MODEL,
+        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt}],
+        output_format=DrillGrade,
+    )
+    if message.stop_reason == "refusal":
+        raise ClaudeRefusal()
+    grade = message.parsed_output
+    if grade.verdict not in ("correct", "partial", "wrong"):
+        grade.verdict = "partial"
+    return grade

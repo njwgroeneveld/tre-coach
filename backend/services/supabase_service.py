@@ -58,6 +58,32 @@ def recent_cause_ids(user_id: str, subtopic: str, limit: int = 5) -> list[str]:
     return [row["hidden"].get("cause_id") for row in result.data if row["hidden"].get("cause_id")]
 
 
+def get_ladder_session(user_id: str) -> str:
+    """The user's session that holds ladder drills; created on first use."""
+    result = client.table("sessions").select("id").eq("user_id", user_id).eq(
+        "topic", "ladder"
+    ).order("created_at", desc=True).limit(1).execute()
+    if result.data:
+        return result.data[0]["id"]
+    return create_session(user_id, "ladder", "ladder", "basis")
+
+
+def recent_drill_scores(user_id: str, subtopics: list[str], n: int = 5) -> dict[str, list[int]]:
+    """The latest n scores per drill subtopic, newest first."""
+    sessions = client.table("sessions").select("id").eq("user_id", user_id).eq("topic", "ladder").execute()
+    session_ids = [row["id"] for row in sessions.data]
+    scores = {s: [] for s in subtopics}
+    if not session_ids:
+        return scores
+    rows = client.table("answers").select("subtopic, score").in_("session_id", session_ids).in_(
+        "subtopic", subtopics
+    ).order("created_at", desc=True).execute().data
+    for row in rows:
+        if len(scores[row["subtopic"]]) < n:
+            scores[row["subtopic"]].append(row["score"])
+    return scores
+
+
 def session_belongs_to(session_id: str, user_id: str) -> bool:
     result = client.table("sessions").select("id").eq(
         "id", session_id

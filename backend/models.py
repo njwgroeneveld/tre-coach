@@ -96,3 +96,25 @@ class InvestigationHintRequest(BaseModel):
 class InvestigationHintResponse(BaseModel):
     hint: str
     hint_number: int
+
+class DrillRequest(BaseModel):
+    lesson: str
+    kind: str  # purpose, columns or read
+
+class DrillResponse(BaseModel):
+    drill_id: str
+    lesson: str
+    kind: str
+    context: str | None = None
+    output: str | None = None
+    question: str
+
+class DrillAnswerRequest(BaseModel):
+    drill_id: str
+    answer: str
+
+class DrillAnswerResponse(BaseModel):
+    verdict: str            # correct, partial or wrong
+    feedback: str
+    key_points: list[str]   # what a correct answer contains, shown after answering
+    progress: list[dict]
