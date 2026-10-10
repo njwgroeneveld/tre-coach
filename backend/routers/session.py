@@ -5,7 +5,7 @@ from auth import current_user, require_own_session
 from models import StartSessionRequest, AnswerRequest, HintRequest, QuestionResponse, FeedbackResponse, HintResponse, FollowupRequest, FollowupResponse
 from services.claude_service import generate_question, generate_hint, generate_followup, SUBTOPICS
 from services.supabase_service import create_session, save_answer, get_weakest_subtopic, get_weakest_topic, get_topic_level
-from services.causes import CAUSES
+from services.causes import VM_INVESTIGATION_SUBTOPICS
 from routers.investigation import start_investigation
 
 router = APIRouter()
@@ -40,23 +40,39 @@ def start_session(body: StartSessionRequest, user_id: str = Depends(current_user
 
 
 @router.post("/question")
-def get_question(session_id: str, subtopic: str, level: str = "basis", user_id: str = Depends(current_user)):
+def get_question(session_id: str, subtopic: str, level: str = "basis", force: str | None = None,
+                 env: str = "vm", user_id: str = Depends(current_user)):
     require_own_session(session_id, user_id)
+
+    # The dashboard's Investigation buttons ask for one directly: env vm, k8s, or mixed (either, at random).
+    if force == "investigation":
+        if env == "mixed":
+            env = random.choice(["vm", "k8s"])
+        if env == "k8s":
+            subtopic = "k8s_cluster"
+        elif subtopic not in VM_INVESTIGATION_SUBTOPICS:
+            subtopic = random.choice(VM_INVESTIGATION_SUBTOPICS)
+        else:
+            env = "vm"
+        investigation_id, symptom = start_investigation(session_id, subtopic, level, user_id, env)
+        return QuestionResponse(question=symptom, question_type="investigation", subtopic=subtopic, level=level,
+                                investigation_id=investigation_id, env=env)
+
     roll = random.random()
-    if subtopic in CAUSES:
+    if subtopic in VM_INVESTIGATION_SUBTOPICS:
         # Performance subtopics: 50% investigation, 30% scenario, 20% command.
         question_type = "investigation" if roll < 0.5 else "scenario" if roll < 0.8 else "command"
     else:
         question_type = "scenario" if roll < 0.7 else "command"
     # Local testing only: FORCE_QUESTION_TYPE=investigation|scenario|command (never set in production).
     forced = os.environ.get("FORCE_QUESTION_TYPE")
-    if forced in ("scenario", "command") or (forced == "investigation" and subtopic in CAUSES):
+    if forced in ("scenario", "command") or (forced == "investigation" and subtopic in VM_INVESTIGATION_SUBTOPICS):
         question_type = forced
 
     if question_type == "investigation":
         investigation_id, symptom = start_investigation(session_id, subtopic, level, user_id)
         return QuestionResponse(question=symptom, question_type=question_type, subtopic=subtopic, level=level,
-                                investigation_id=investigation_id)
+                                investigation_id=investigation_id, env="vm")
     question = generate_question(subtopic, question_type, level)
     return QuestionResponse(question=question, question_type=question_type, subtopic=subtopic, level=level)
 

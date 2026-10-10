@@ -46,12 +46,14 @@ def count_hints(steps: list) -> int:
     return sum(1 for s in steps if s.get("kind") == "hint")
 
 
-def start_investigation(session_id: str, subtopic: str, level: str, user_id: str) -> tuple[str, str]:
-    """Generate a scenario, store it, and return (investigation_id, symptom)."""
+def start_investigation(session_id: str, subtopic: str, level: str, user_id: str, env: str = "vm") -> tuple[str, str]:
+    """Generate a scenario, store it, and return (investigation_id, symptom). env: 'vm' or 'k8s'."""
     cause = pick_cause(subtopic, level, recent_cause_ids(user_id, subtopic))
-    scenario = generate_investigation(subtopic, level, cause)
+    scenario = generate_investigation(subtopic, level, cause, env)
     # Everything except the symptom stays in the database; the trainee only sees the symptom.
     hidden = {
+        "env": env,
+        "scope": cause.get("scope") if cause else None,
         "cause_id": cause["id"] if cause else None,
         "cause": scenario.cause,
         "facts": scenario.facts,

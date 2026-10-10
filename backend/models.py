@@ -24,6 +24,7 @@ class QuestionResponse(BaseModel):
     subtopic: str
     level: str
     investigation_id: str | None = None  # only for question_type 'investigation'
+    env: str | None = None               # investigation only: 'vm' or 'k8s'
 
 class FeedbackResponse(BaseModel):
     feedback: str

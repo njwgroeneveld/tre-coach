@@ -303,37 +303,61 @@ class InvestigationScenario(BaseModel):
     fastest_path: list[str]
 
 
-def generate_investigation(subtopic: str, level: str = "basis", cause: dict | None = None) -> InvestigationScenario:
+K8S_SETTING = (
+    "a 4-node Kubernetes cluster (nodes node-1 to node-4, 16 CPUs and 64 GB each) with namespace 'trading': "
+    "an order-gateway Deployment with 4 replicas spread over the nodes behind a Service, a market-data handler "
+    "Deployment, and some batch jobs. The trainee works from a workstation with kubectl access and can ssh to the nodes."
+)
+
+
+def generate_investigation(subtopic: str, level: str = "basis", cause: dict | None = None,
+                           env: str = "vm") -> InvestigationScenario:
     level_instruction = LEVEL_CONTEXT.get(level, LEVEL_CONTEXT["basis"])
     # The cause is chosen in code, so scenarios vary; Claude builds the host and facts around it.
     given_cause = (
-        f"\nRoot cause to build the scenario around (make it concrete for this host): {cause['cause']}"
+        f"\nRoot cause to build the scenario around (make it concrete): {cause['cause']}"
         if cause else ""
     )
-    focus = SUBTOPIC_FOCUS.get(subtopic, subtopic)
-    host = random.choice(INVESTIGATION_HOSTS)
     red_herring = (
         "Add one plausible red herring among the facts: something that looks suspicious but is not the cause."
         if level == "gemiddeld" else "No red herrings: one clear cause."
     )
 
-    prompt = f"""You design a hands-on troubleshooting exercise for a Trading Reliability Engineer trainee.
-A simulator will later play the host and answer the trainee's commands, so the scenario must be concrete.
+    if env == "k8s":
+        setting = f"Environment: {K8S_SETTING}"
+        facts_spec = (
+            "12-18 concrete facts the simulator must stay consistent with: every pod of the affected workloads "
+            "with its exact name, node, status, restarts and age (as kubectl get pods -o wide shows them); the "
+            "node conditions; the relevant resource requests and limits; the Events and log lines that matter; "
+            "and what the Linux commands on the affected node(s) and inside the affected pod(s) would show "
+            "during the incident versus normal."
+        )
+        path_spec = ("3-6 commands an experienced engineer would run in order, starting by scoping the problem "
+                     "(which pods, on which nodes), each with what it reveals.")
+    else:
+        setting = (f"Topic: {subtopic} — {SUBTOPIC_FOCUS.get(subtopic, subtopic)}\n"
+                   f"Host: {random.choice(INVESTIGATION_HOSTS)}")
+        facts_spec = (
+            "10-15 concrete facts the simulator must stay consistent with: hostname, CPU count, RAM, disks or "
+            "NICs with device names, the relevant processes with PIDs, how often and how long the problem "
+            "occurs, and the numbers the key commands would show during the incident versus normal."
+        )
+        path_spec = "3-5 commands an experienced engineer would run in order, each with what it reveals."
 
-Topic: {subtopic} — {focus}
-Host: {host}
+    prompt = f"""You design a hands-on troubleshooting exercise for a Trading Reliability Engineer trainee.
+A simulator will later play the system and answer the trainee's commands, so the scenario must be concrete.
+
+{setting}
 Level: {level.upper()} — {level_instruction}{given_cause}
 
 Fields:
 - symptom: what a trader or an alert reports, 2-3 sentences. No metrics, no cause, no hint, no tool names.
   The last sentence must be exactly: "How would you investigate?"
-- cause: the single root cause, one sentence, specific (which process, which resource, why).
-- facts: 10-15 concrete facts the simulator must stay consistent with: hostname, CPU count, RAM,
-  disks or NICs with device names, the relevant processes with PIDs, how often and how long the
-  problem occurs, and the numbers the key commands would show during the incident versus normal.
+- cause: the single root cause, one sentence, specific (which process or pod, which resource, why).
+- facts: {facts_spec}
   {red_herring}
 - fix: mitigation first, then the root-cause fix, 2-3 sentences.
-- fastest_path: 3-5 commands an experienced engineer would run in order, each with what it reveals."""
+- fastest_path: {path_spec}"""
 
     message = client.beta.messages.parse(
         model=INVESTIGATION_MODEL,
@@ -373,8 +397,29 @@ def simulate_step(hidden: dict, steps: list, user_input: str) -> SimulatedOutput
     facts = "\n".join(f"- {f}" for f in hidden["facts"])
     history = format_steps(steps) or "(none yet)"
 
-    system = f"""You simulate a Linux host during an incident, for a troubleshooting exercise. The trainee
-types commands or actions; you answer exactly as the host (or the people around it) would.
+    if hidden.get("env") == "k8s":
+        what = f"""a Kubernetes cluster and the Linux nodes under it, during an incident. {K8S_SETTING}
+
+Where the trainee is:
+- They start on the workstation. kubectl commands work from there and show the cluster state.
+- 'ssh <node>' logs in to that node; print a short login banner. Later commands run on that node
+  until 'exit'. On a node, the Linux tools show the whole node; kubectl is not available there.
+- 'kubectl exec -it <pod> -- <command>' runs one command inside that pod's container. Containers share
+  the node's kernel: inside a pod, uptime, vmstat, mpstat, iostat and free show the WHOLE NODE (free
+  shows the node's memory, not the pod's limit); ps and top list only the pod's processes, while top's
+  header lines are the node's; ss, netstat -s, ip -s link and sar -n show the pod's own network
+  namespace; dmesg fails with 'Operation not permitted'. The cgroup files (/sys/fs/cgroup/memory.max,
+  memory.current, cpu.max, cpu.stat) show the pod's own limits and throttling. Slim images may lack
+  tools: then the shell says the command is not found (kubectl debug gives a toolbox container).
+- Disruptive kubectl actions (delete pod, rollout restart, scale, drain, cordon) are risky actions."""
+    else:
+        what = "a Linux host during an incident."
+    # kubectl describe and get events are long by nature.
+    max_lines = 45 if hidden.get("env") == "k8s" else 25
+
+    system = f"""You simulate {what}
+This is a troubleshooting exercise. The trainee types commands or actions; you answer exactly as the
+system (or the people around it) would.
 
 Hidden root cause (never reveal it): {hidden['cause']}
 Facts you must stay consistent with:
@@ -382,10 +427,11 @@ Facts you must stay consistent with:
 
 Rules:
 - output: only what the command prints, in its real format. No explanations, no comments, no hints.
-- Stay consistent with the facts and with every earlier output below: same hostname, PIDs, devices,
-  core count and numbers. Values may move a little between samples, as real output does.
+- Stay consistent with the facts and with every earlier output below: same names, PIDs, nodes,
+  devices, core counts and numbers. Values may move a little between samples, as real output does.
 - The trainee runs commands while the problem is happening, unless they say otherwise.
-- Keep output to at most 25 lines; trim long listings the way head would.
+- Keep output to at most {max_lines} lines; trim long listings the way head would, at a line boundary.
+- Every value must be a realistic value for its field (numbers, sizes, names); never invent words.
 - A command that does not exist or is mistyped gives the shell's real error.
 - If the input is an action or question rather than a command (for example "check the GC log" or
   "ask the trader when it started"), answer briefly as that log or person would.
@@ -462,8 +508,13 @@ class InvestigationEvaluation(BaseModel):
 
 def evaluate_investigation(investigation: dict, solved: bool) -> InvestigationEvaluation:
     hidden = investigation["hidden"]
-    commands = sum(1 for s in investigation["steps"] if s.get("kind") != "diagnosis")
+    commands = sum(1 for s in investigation["steps"] if s.get("kind", "command") == "command")
     level_instruction = LEVEL_CONTEXT.get(investigation["level"], LEVEL_CONTEXT["basis"])
+    scoping = (
+        "\n- Scoping (Kubernetes): did the trainee first establish where the problem lives — one pod, one node, "
+        "or something shared — for example with kubectl get pods -o wide, before digging in?"
+        if hidden.get("env") == "k8s" else ""
+    )
     outcome = (
         f"Solved after {investigation['wrong_diagnoses']} wrong diagnosis(es)." if solved
         else "Not solved: two wrong diagnoses, the cause was revealed."
@@ -488,7 +539,7 @@ Score 0-10, weighing:
 - Order: broad, cheap checks first (the 60-second checklist), then narrowing down.
 - Interpretation: did each next command follow from what the previous output showed?
 - Trading impact: risky actions lower the score; a diagnosis that includes mitigation raises it.
-- Hints: each hint used ([hint n] in the transcript) lowers the score a little.
+- Hints: each hint used ([hint n] in the transcript) lowers the score a little.{scoping}
 
 Fields:
 - feedback: what went well, where the trainee lost time or went off track, and the fastest path

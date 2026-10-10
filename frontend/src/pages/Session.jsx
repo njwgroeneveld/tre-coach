@@ -5,7 +5,7 @@ import ChatBubble from '../components/ChatBubble'
 
 const API = import.meta.env.VITE_API_URL
 // Performance sessions are one question: an investigation alone takes long enough.
-const questionsPerSession = (topic) => (topic === 'performance' ? 1 : 3)
+const questionsPerSession = (data) => (data?.investigation || data?.topic === 'performance' ? 1 : 3)
 
 function useVoiceInput(onTranscript) {
   const [listening, setListening] = useState(false)
@@ -147,7 +147,8 @@ export default function Session() {
 
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch(
-      `${API}/session/question?session_id=${sessionData.session_id}&subtopic=${subtopic}&level=${sessionData.level}`,
+      `${API}/session/question?session_id=${sessionData.session_id}&subtopic=${subtopic}&level=${sessionData.level}` +
+        (sessionData.investigation ? `&force=investigation&env=${sessionData.investigation}` : ''),
       { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }
     )
     if (!res.ok) {
@@ -164,7 +165,9 @@ export default function Session() {
       // No subtopic label: it would give the cause away.
       setMessages(prev => [...prev,
         { role: 'question', text: q.question },
-        { role: 'system', text: `🔍 Investigation: type commands as if you are on the host (up to ${MAX_STEPS}). When you know the cause, press Diagnose.` },
+        { role: 'system', text: q.env === 'k8s'
+          ? `☸️ Kubernetes investigation: you are on a workstation with kubectl access to the cluster (namespace trading). Use kubectl, 'ssh node-N' to log in to a node ('exit' to leave), or 'kubectl exec -it <pod> -n trading -- <command>'. Up to ${MAX_STEPS} commands; press Diagnose when you know the cause.`
+          : `🔍 Investigation: type commands as if you are on the host (up to ${MAX_STEPS}). When you know the cause, press Diagnose.` },
       ])
     } else {
       setMessages(prev => [...prev, { role: 'question', text: q.question, subtopic: q.subtopic }])
@@ -364,7 +367,7 @@ export default function Session() {
   function handleNextQuestion() {
     const newCount = questionCount + 1
     setQuestionCount(newCount)
-    if (newCount >= questionsPerSession(sessionData?.topic)) {
+    if (newCount >= questionsPerSession(sessionData)) {
       navigate('/results', { state: { sessionData, questionsAnswered: newCount } })
     } else {
       fetchQuestion()
@@ -372,14 +375,15 @@ export default function Session() {
   }
 
   const levelLabel = sessionData?.level === 'gemiddeld' ? 'Intermediate' : 'Foundation'
+  const isK8s = currentQuestion?.env === 'k8s'
   const subtopicLabel = investigating
-    ? 'investigation'
+    ? (isK8s ? 'kubernetes investigation' : 'investigation')
     : currentQuestion?.subtopic?.replace(/_/g, ' ') || sessionData?.subtopic?.replace(/_/g, ' ')
 
   const placeholder = followUpMode
     ? 'Ask a follow-up question...'
     : commandMode
-      ? 'uptime'
+      ? (isK8s ? 'kubectl get pods -n trading -o wide' : 'uptime')
       : diagnoseMode
         ? 'Name the culprit and how it causes the symptom, then your fix...'
         : 'Type your answer... (Shift+Enter for new line)'
@@ -393,7 +397,7 @@ export default function Session() {
             {sessionData?.topic} — {subtopicLabel}
           </h2>
           <p className="text-gray-400 text-xs">
-            {levelLabel} · {questionCount}/{questionsPerSession(sessionData?.topic)} questions
+            {levelLabel} · {questionCount}/{questionsPerSession(sessionData)} questions
             {investigating && (
               <> · step {MAX_STEPS - investigation.stepsLeft}/{MAX_STEPS} · attempt {MAX_ATTEMPTS - investigation.attemptsLeft + 1}/{MAX_ATTEMPTS}</>
             )}

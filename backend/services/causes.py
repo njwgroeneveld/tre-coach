@@ -99,7 +99,53 @@ CAUSES = {
         {"id": "multicast_gap", "level": "gemiddeld", "trading": True,
          "cause": "Multicast market data has gaps because reverse path filtering (rp_filter) drops packets arriving on the second feed interface after a routing change; UDP has no retransmit, so the order book goes stale."},
     ],
+    # Kubernetes investigations. "scope" says where the cause lives: in the pod, on one node, or in
+    # something every node shares. Finding that out first is what these scenarios train.
+    "k8s_cluster": [
+        {"id": "oom_killed", "level": "basis", "trading": True, "scope": "pod",
+         "cause": "One order-gateway pod is OOMKilled every 20 minutes or so: its memory limit (2Gi) is below what it "
+                  "needs at peak load. It restarts, and orders routed to it fail during the restart."},
+        {"id": "crashloop_config", "level": "basis", "trading": True, "scope": "pod",
+         "cause": "After this morning's deploy the new market-data handler pods crash on start (CrashLoopBackOff): the "
+                  "environment variable EXCHANGE_URL is missing from the new ConfigMap. The old ReplicaSet still "
+                  "serves part of the traffic."},
+        {"id": "image_pull", "level": "basis", "trading": False, "scope": "pod",
+         "cause": "A rollout is stuck: the new pods are in ImagePullBackOff because the image tag in the Deployment "
+                  "does not exist. The old pods still run, so the gateway has less capacity than planned."},
+        {"id": "disk_pressure", "level": "basis", "trading": False, "scope": "node",
+         "cause": "One node's disk is full of container logs (DiskPressure=True). The kubelet evicts pods from that "
+                  "node, including gateway pods, and they restart elsewhere."},
+        {"id": "noisy_neighbour_disk", "level": "basis", "trading": True, "scope": "node",
+         "cause": "A backup CronJob pod without resource limits runs on one node and saturates its disk. The gateway "
+                  "pods on that node are slow; the replicas on the other nodes are fine."},
+        {"id": "cpu_throttling", "level": "gemiddeld", "trading": True, "scope": "pod",
+         "cause": "The order-gateway pods have a CPU limit of 2 cores. In bursts the CFS quota throttles them "
+                  "(nr_throttled in cpu.stat rises), causing latency spikes while the nodes themselves are mostly idle."},
+        {"id": "liveness_too_strict", "level": "gemiddeld", "trading": True, "scope": "pod",
+         "cause": "The gateway's liveness probe has a 1-second timeout. Under load at the market open the health "
+                  "endpoint answers slower, so the kubelet kills and restarts healthy pods (Events: Liveness probe "
+                  "failed), leaving gaps in order flow."},
+        {"id": "readiness_failing", "level": "gemiddeld", "trading": True, "scope": "pod",
+         "cause": "Two of the four gateway pods fail their readiness probe because its dependency check times out. "
+                  "They are removed from the Service endpoints, so the remaining two pods take all traffic and are overloaded."},
+        {"id": "node_nic_drops", "level": "gemiddeld", "trading": True, "scope": "node",
+         "cause": "On one node the NIC to the exchange overflows its receive ring during market-data bursts (RX missed "
+                  "rises on the node). Pods on that node see retransmits and late acks; pods on other nodes are fine."},
+        {"id": "node_memory_pressure", "level": "gemiddeld", "trading": False, "scope": "node",
+         "cause": "One node is overcommitted: pods without memory limits push it into memory pressure "
+                  "(MemoryPressure=True), and the kernel OOM-kills processes in several pods on that node."},
+        {"id": "kubelet_down", "level": "gemiddeld", "trading": False, "scope": "node",
+         "cause": "One node went NotReady because its kubelet stopped after its client certificate expired. Its pods "
+                  "are marked Unknown and only get replaced elsewhere after the eviction timeout."},
+        {"id": "coredns_overloaded", "level": "gemiddeld", "trading": True, "scope": "shared",
+         "cause": "CoreDNS runs a single, CPU-limited replica and is overloaded. Pods on every node see intermittent "
+                  "DNS timeouts when resolving the exchange hostname, so new connections fail now and then."},
+    ],
 }
+
+
+# The performance subtopics: their investigations run on a single Linux host (a VM).
+VM_INVESTIGATION_SUBTOPICS = [subtopic for subtopic in CAUSES if subtopic != "k8s_cluster"]
 
 
 def pick_cause(subtopic: str, level: str, recent_ids: list[str]) -> dict | None:

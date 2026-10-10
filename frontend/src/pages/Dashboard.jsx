@@ -13,6 +13,15 @@ const TOPICS = [
   { key: 'performance', label: 'Performance', emoji: '⚡', color: 'bg-red-700 hover:bg-red-800' },
 ]
 
+const INVESTIGATIONS = [
+  { env: 'vm', topic: 'performance', label: '🔍 Investigation · VM', color: 'bg-red-800 hover:bg-red-900',
+    detail: 'One Linux host: uptime, vmstat, iostat, ss, …' },
+  { env: 'k8s', topic: 'kubernetes', label: '☸️ Investigation · Kubernetes', color: 'bg-green-800 hover:bg-green-900',
+    detail: 'A cluster: kubectl, then ssh to a node or exec into a pod' },
+  { env: 'mixed', topic: 'performance', label: '🎲 Investigation · Mixed', color: 'bg-indigo-800 hover:bg-indigo-900',
+    detail: 'VM or Kubernetes, you find out when it starts' },
+]
+
 export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -29,7 +38,8 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  async function startSession(topic, level) {
+  // investigation: 'vm', 'k8s' or 'mixed' starts straight into an investigation; omitted for normal sessions.
+  async function startSession(topic, level, investigation) {
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch(`${API}/session/start`, {
       method: 'POST',
@@ -37,7 +47,7 @@ export default function Dashboard() {
       body: JSON.stringify({ topic: topic || null, level: level || null })
     })
     const sessionData = await res.json()
-    navigate('/session', { state: sessionData })
+    navigate('/session', { state: { ...sessionData, investigation } })
   }
 
   if (loading) return (
@@ -101,6 +111,23 @@ export default function Dashboard() {
           <span className="block text-white">🎯 Start recommended session</span>
           <span className="text-gray-400 text-sm">Weakest topic at your current level</span>
         </button>
+      </div>
+
+      <div className="mb-6">
+        <h2 className="text-white font-semibold mb-1">Investigation</h2>
+        <p className="text-gray-400 text-sm mb-3">A live incident: you only get the symptom, type up to 10 commands and see their output, then give your diagnosis.</p>
+        <div className="grid gap-3 md:grid-cols-3">
+          {INVESTIGATIONS.map(i => (
+            <button
+              key={i.env}
+              onClick={() => startSession(i.topic, levels[i.topic] || 'basis', i.env)}
+              className={`${i.color} text-white p-4 rounded-xl font-medium text-left`}
+            >
+              <span className="block">{i.label}</span>
+              <span className="text-white/70 text-xs">{i.detail}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mb-8">

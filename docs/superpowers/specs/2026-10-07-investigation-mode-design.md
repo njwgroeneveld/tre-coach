@@ -70,6 +70,13 @@ Only in the **performance** topic at first. Question type split for that topic:
 investigation 50%, scenario 30%, command 20%. Other topics keep 70% scenario / 30% command.
 Extending to `linux`, `netwerk` and `kubernetes` is a later step.
 
+**Update 2026-10-10:** the dashboard has three Investigation buttons that start one directly:
+**VM** (a single Linux host, the performance causes), **Kubernetes** (a 4-node cluster: kubectl from a
+workstation, `ssh node-N`, `kubectl exec` into pods, with the container caveats: free and vmstat in a
+pod show the node) and **Mixed** (either, at random). Kubernetes causes live under `k8s_cluster` in
+`services/causes.py`, each with a scope — pod, node or shared — and grading adds a point for scoping
+first. The environment is stored as `hidden.env`; no schema change.
+
 ### Database
 
 New table `investigations`:
