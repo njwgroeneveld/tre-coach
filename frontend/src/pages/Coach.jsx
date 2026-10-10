@@ -48,7 +48,7 @@ export default function Coach() {
   const weakestLabel = weakest ? weakest.charAt(0).toUpperCase() + weakest.slice(1) : null
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6 max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-950 p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-white text-2xl font-bold">English Coach</h1>

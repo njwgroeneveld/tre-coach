@@ -234,7 +234,7 @@ export default function Learn() {
   const current = selected && lessons?.find(l => l.lesson === selected)
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6 max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gray-950 p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-white text-2xl font-bold">📖 Learn</h1>
@@ -247,7 +247,7 @@ export default function Learn() {
       {!lessons && !error && <p className="text-gray-400">Loading…</p>}
 
       {lessons && !current && (
-        <div className="space-y-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {lessons.map(l => (
             <button
               key={l.lesson}
@@ -271,7 +271,7 @@ export default function Learn() {
               </div>
             </button>
           ))}
-          <p className="text-gray-600 text-xs">Lessons 1–10 follow the Netflix 60-second checklist; 11–13 add network commands for trading hosts.</p>
+          <p className="text-gray-600 text-xs col-span-full">Lessons 1–10 follow the Netflix 60-second checklist; 11–13 add network commands for trading hosts.</p>
         </div>
       )}
 

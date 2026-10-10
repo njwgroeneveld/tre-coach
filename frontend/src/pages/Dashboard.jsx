@@ -50,7 +50,7 @@ export default function Dashboard() {
   const weak = data?.weak_subtopics || []
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6 max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-950 p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-white text-2xl font-bold">TRE Coach</h1>
@@ -71,9 +71,9 @@ export default function Dashboard() {
 
       <div className="bg-gray-900 rounded-xl p-4 mb-6">
         <h2 className="text-white font-semibold mb-3">Your level</h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
           {TOPICS.map(t => (
-            <div key={t.key} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 odd:last:col-span-2">
+            <div key={t.key} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 odd:last:col-span-2 lg:odd:last:col-span-1">
               <span className="text-gray-300 text-sm">{t.emoji} {t.label}</span>
               <span className={`text-xs font-bold px-2 py-1 rounded ${
                 levels[t.key] === 'gemiddeld' ? 'bg-green-800 text-green-300' : 'bg-gray-700 text-gray-400'
@@ -105,12 +105,12 @@ export default function Dashboard() {
 
       <div className="mb-8">
         <h2 className="text-white font-semibold mb-3">Choose topic</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {TOPICS.map(t => (
             <button
               key={t.key}
               onClick={() => startSession(t.key, levels[t.key] || 'basis')}
-              className={`${t.color} text-white p-4 rounded-xl font-medium text-left odd:last:col-span-2`}
+              className={`${t.color} text-white p-4 rounded-xl font-medium text-left odd:last:col-span-2 lg:odd:last:col-span-1`}
             >
               <span className="block">{t.emoji} {t.label}</span>
               <span className="text-white/70 text-xs">
@@ -122,12 +122,12 @@ export default function Dashboard() {
       </div>
 
       <h2 className="text-white font-semibold mb-3">Progress per topic</h2>
-      <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {(data?.scores || []).map(s => (
           <TopicCard key={s.subtopic} subtopic={s.subtopic} correct={s.correct_answers} total={s.total_answers} />
         ))}
         {(!data?.scores || data.scores.length === 0) && (
-          <p className="text-gray-500 text-sm">No sessions yet. Start your first session above!</p>
+          <p className="text-gray-500 text-sm col-span-full">No sessions yet. Start your first session above!</p>
         )}
       </div>
     </div>

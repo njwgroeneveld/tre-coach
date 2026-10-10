@@ -386,7 +386,7 @@ export default function Session() {
   const submitLabel = followUpMode ? 'Ask' : commandMode ? 'Run' : diagnoseMode ? 'Diagnose' : 'Send'
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-950 flex flex-col max-w-7xl mx-auto">
       <div className="p-4 border-b border-gray-800 flex justify-between items-center">
         <div>
           <h2 className="text-white font-semibold">
