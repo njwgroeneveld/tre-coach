@@ -35,7 +35,13 @@ function Card({ card }) {
       <p className="text-gray-300 text-sm">{card.summary}</p>
       <pre className="bg-black text-gray-200 text-xs font-mono rounded-lg p-3 overflow-x-auto">{card.example}</pre>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="w-full text-sm table-fixed min-w-[640px]">
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-[32%]" />
+            <col className="w-[18%]" />
+            <col className="w-[28%]" />
+          </colgroup>
           <thead>
             <tr className="text-gray-400 text-left">
               <th className="pr-3 pb-2 font-medium">Field</th>
@@ -47,7 +53,7 @@ function Card({ card }) {
           <tbody>
             {card.fields.map(f => (
               <tr key={f.name} className="border-t border-gray-800 align-top">
-                <td className="pr-3 py-2 font-mono text-green-400 whitespace-nowrap">{f.name}</td>
+                <td className="pr-3 py-2 font-mono text-xs text-green-400 break-words">{f.name}</td>
                 <td className="pr-3 py-2 text-gray-200">{f.meaning}</td>
                 <td className="pr-3 py-2 text-gray-400">{f.normal}</td>
                 <td className="py-2 text-gray-200">{f.alarming}</td>
@@ -228,7 +234,7 @@ export default function Learn() {
   const current = selected && lessons?.find(l => l.lesson === selected)
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6 max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-950 p-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-white text-2xl font-bold">📖 Learn</h1>

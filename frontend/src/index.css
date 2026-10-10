@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* The pages are centred columns; without this the space around them is white. */
+body {
+  @apply bg-gray-950;
+}
